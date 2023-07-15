@@ -4,6 +4,12 @@ use crate::behaviors::analyze::*;
 use crate::types::{pitch::{scale::*, chord::*, melody::*}, rhythm::*};
 use std::ops::{Sub, Rem, Add};
 
+/// A trait representing the rotation of a cyclical collection of things.
+pub trait Rotate {
+    /// Rotates a cycle n times.
+    fn rotate(&self, n: i16) -> Self;
+}
+
 /// A trait representing the rotation of a scale's modes.
 pub trait RotateMode {
     /// Rotates the mode of the scale in a parallel way.
@@ -13,19 +19,13 @@ pub trait RotateMode {
     fn relative_rotate(&self, amount: i16) -> Self;
 }
 
-/// A trait representing the repetition of elements in a sequence,
+/// A trait representing the repetition of elements in a sequence.
 pub trait Repeat {
     /// Repeats a sequence n times.
     fn repeat(&self, n: usize) -> Self;
 
     /// Repeats each element of a sequence n times.
     fn stretch(&self, n: usize) -> Self;
-}
-
-/// A trait representing the rotation of a cyclical collection of things.
-pub trait Rotate {
-    /// Rotates a cycle n times.
-    fn rotate(&self, n: i16) -> Self;
 }
 
 /// A trait representing the transposition of pitches in a pitch struct.
@@ -38,6 +38,84 @@ pub trait Transpose {
 pub trait Offset {
     /// Offsets the times in a struct by amount.
     fn offset(&self, amount: f64) -> Self;
+}
+
+//--------------------------------------------------------------------//
+
+pub mod rotate {
+    use super::*;
+
+    impl Rotate for PitchSetShape {
+        fn rotate(&self, n: i16) -> Self {
+            let mut intervals = self.intervals.clone();
+            intervals.rotate_left(n.rem_euclid(self.len() as i16) as usize);
+
+            Self::new(intervals)
+        }
+    }
+
+    impl Rotate for PitchScaleShape {
+        fn rotate(&self, n: i16) -> Self {
+            let mut intervals = self.intervals.clone();
+            intervals.rotate_left(n.rem_euclid(self.len() as i16) as usize);
+
+            Self::new(intervals)
+        }
+    }
+
+    impl Rotate for PitchCycle {
+        fn rotate(&self, n: i16) -> Self {
+            let mut pitches = self.pitches.clone();
+            pitches.rotate_left(n.rem_euclid(self.len() as i16) as usize);
+
+            Self::new(pitches)
+        }
+    }
+
+    impl Rotate for IntervalCycle {
+        fn rotate(&self, n: i16) -> Self {
+            let mut intervals = self.intervals.clone();
+            intervals.rotate_left(n.rem_euclid(self.len() as i16) as usize);
+
+            Self::new(intervals)
+        }
+    }
+
+    impl Rotate for PitchClassCycle {
+        fn rotate(&self, n: i16) -> Self {
+            let mut pitch_classes = self.pitch_classes.clone();
+            pitch_classes.rotate_left(n.rem_euclid(self.len() as i16) as usize);
+
+            Self::new(pitch_classes, self.modulus())
+        }
+    }
+
+    impl Rotate for IntervalClassCycle {
+        fn rotate(&self, n: i16) -> Self {
+            let mut interval_classes = self.interval_classes.clone();
+            interval_classes.rotate_left(n.rem_euclid(self.len() as i16) as usize);
+
+            Self::new(interval_classes, self.modulus())
+        }
+    }
+
+    impl Rotate for TimeSetShape {
+        fn rotate(&self, n: i16) -> Self {
+            let mut intervals = self.intervals.clone();
+            intervals.rotate_left(n.rem_euclid(self.len() as i16) as usize);
+
+            Self::new(intervals)
+        }
+    }
+
+    impl Rotate for TimeScaleShape {
+        fn rotate(&self, n: i16) -> Self {
+            let mut intervals = self.intervals.clone();
+            intervals.rotate_left(n.rem_euclid(self.len() as i16) as usize);
+
+            Self::new(intervals)
+        }
+    }
 }
 
 pub mod rotate_mode {
@@ -64,6 +142,24 @@ pub mod rotate_mode {
                 .collect();
 
             Self::new(sort_vector(&harmonics), self.eval(amount))
+        }
+    }
+
+    impl RotateMode for PitchScaleKey
+    {
+        fn parallel_rotate(&self, amount: i16) -> Self {
+            let t = self.pitch_classes[amount.rem_euclid(self.len() as i16) as usize] - self.root();
+
+            let pitch_classes: Vec<i16> = self.pitch_classes
+                .iter()
+                .map(|num| (*num - t).rem_euclid(self.modulus()))
+                .collect();
+    
+            Self::new(pitch_classes, self.modulus(), self.root())
+        }
+    
+        fn relative_rotate(&self, amount: i16) -> Self {
+            Self::new(self.pitch_classes.clone(), self.modulus(), self.eval(amount.rem_euclid(self.len() as i16)))
         }
     }
 
@@ -105,24 +201,6 @@ pub mod rotate_mode {
     
         fn relative_rotate(&self, amount: i16) -> Self {
             Self::new(self.time_classes.clone(), self.modulus(), self.eval(amount.rem_euclid(self.len() as i16)))
-        }
-    }
-
-    impl RotateMode for PitchScaleKey
-    {
-        fn parallel_rotate(&self, amount: i16) -> Self {
-            let t = self.pitch_classes[amount.rem_euclid(self.len() as i16) as usize] - self.root();
-
-            let pitch_classes: Vec<i16> = self.pitch_classes
-                .iter()
-                .map(|num| (*num - t).rem_euclid(self.modulus()))
-                .collect();
-    
-            Self::new(pitch_classes, self.modulus(), self.root())
-        }
-    
-        fn relative_rotate(&self, amount: i16) -> Self {
-            Self::new(self.pitch_classes.clone(), self.modulus(), self.eval(amount.rem_euclid(self.len() as i16)))
         }
     }
 }
@@ -207,82 +285,6 @@ pub mod repeat {
 
         fn stretch(&self, n: usize) -> Self {
             Self::new(stretch_list(&self.intervals, n))
-        }
-    }
-}
-
-pub mod rotate {
-    use super::*;
-
-    impl Rotate for PitchSetShape {
-        fn rotate(&self, n: i16) -> Self {
-            let mut intervals = self.intervals.clone();
-            intervals.rotate_left(n.rem_euclid(self.len() as i16) as usize);
-
-            Self::new(intervals)
-        }
-    }
-
-    impl Rotate for PitchScaleShape {
-        fn rotate(&self, n: i16) -> Self {
-            let mut intervals = self.intervals.clone();
-            intervals.rotate_left(n.rem_euclid(self.len() as i16) as usize);
-
-            Self::new(intervals)
-        }
-    }
-
-    impl Rotate for PitchCycle {
-        fn rotate(&self, n: i16) -> Self {
-            let mut pitches = self.pitches.clone();
-            pitches.rotate_left(n.rem_euclid(self.len() as i16) as usize);
-
-            Self::new(pitches)
-        }
-    }
-
-    impl Rotate for IntervalCycle {
-        fn rotate(&self, n: i16) -> Self {
-            let mut intervals = self.intervals.clone();
-            intervals.rotate_left(n.rem_euclid(self.len() as i16) as usize);
-
-            Self::new(intervals)
-        }
-    }
-
-    impl Rotate for PitchClassCycle {
-        fn rotate(&self, n: i16) -> Self {
-            let mut pitch_classes = self.pitch_classes.clone();
-            pitch_classes.rotate_left(n.rem_euclid(self.len() as i16) as usize);
-
-            Self::new(pitch_classes, self.modulus())
-        }
-    }
-
-    impl Rotate for IntervalClassCycle {
-        fn rotate(&self, n: i16) -> Self {
-            let mut interval_classes = self.interval_classes.clone();
-            interval_classes.rotate_left(n.rem_euclid(self.len() as i16) as usize);
-
-            Self::new(interval_classes, self.modulus())
-        }
-    }
-
-    impl Rotate for TimeSetShape {
-        fn rotate(&self, n: i16) -> Self {
-            let mut intervals = self.intervals.clone();
-            intervals.rotate_left(n.rem_euclid(self.len() as i16) as usize);
-
-            Self::new(intervals)
-        }
-    }
-
-    impl Rotate for TimeScaleShape {
-        fn rotate(&self, n: i16) -> Self {
-            let mut intervals = self.intervals.clone();
-            intervals.rotate_left(n.rem_euclid(self.len() as i16) as usize);
-
-            Self::new(intervals)
         }
     }
 }
