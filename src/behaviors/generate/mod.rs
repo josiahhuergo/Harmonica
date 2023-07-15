@@ -26,7 +26,7 @@ impl PitchScaleMap {
     /// // composition == ScaleMap { harmonics: vec![3,4,7,10,12,15], transposition: 4 }
     /// ```
     pub fn compose(&self, other: &Self) -> Self {
-        let new_t = other.eval(self.offset);
+        let new_t = other.eval(self.transposition);
         let new_period = (self.len() * other.len()) as i16 / gcd(self.modulus(), other.modulus());
         let mut pattern: Vec<i16> = vec![];
 
@@ -34,6 +34,6 @@ impl PitchScaleMap {
             pattern.push(other.eval(self.eval(i)) - new_t);
         }
 
-        ScaleMap::new(pattern, new_t)
+        Self::new(pattern, new_t)
     }
 }

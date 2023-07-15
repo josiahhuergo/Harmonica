@@ -6,32 +6,83 @@ use crate::utility::*;
 //-----------------------------------------------
 
 /// A struct representing a set of time classes.
-pub type TimeClassSet = ResidueSet<f64>;
+/// 
+/// ## Predicates
+/// 
+/// * Time classes must be in ascending order.
+/// * Time classes & modulus must be non-negative.
+/// * Time classes must be less than the modulus.
+#[derive(PartialEq, Debug)]
+pub struct TimeClassSet {
+    pub time_classes: Vec<f64>,
+    pub modulus: f64
+}
 
-/// A struct representing a patterned mapping from indexes to times.
-pub type TimeScaleMap = ScaleMap<f64>;
+/// A struct representing a patterned mapping from indices to times.
+/// 
+/// ## Predicates
+/// 
+/// * Harmonics must be positive, unique, and in ascending order.
+#[derive(PartialEq, Debug)]
+pub struct TimeScaleMap {
+    pub harmonics: Vec<f64>,
+    pub offset: f64
+}
 
-/// A struct representing an indexed `TimeClassSet`.
-pub type TimeScaleKey = IndexedResidues<f64>;
+/// A struct representing an indexed time class set.
+/// 
+/// ## Predicates
+/// 
+/// * Time classes and modulus must be non-negative.
+/// * Time classes must be unique. 
+/// * Time classes must be less than the modulus. 
+/// * Time classes must be in cyclically ascending order.
+#[derive(PartialEq, Debug)]
+pub struct TimeScaleKey {
+    pub time_classes: Vec<f64>,
+    pub modulus: f64
+}
 
-/// A struct representing the "shape" of a time scale.
-pub type TimeScaleShape = ScaleShape<f64>;
+/// A struct representing the shape of a scale.
+/// 
+/// ## Predicates
+/// 
+/// * Intervals must be positive.
+#[derive(PartialEq, Debug)]
+pub struct TimeScaleShape {
+    pub intervals: Vec<f64>
+}
 
 //-----------------------------------------------
 //--------------------- SET ---------------------
 //-----------------------------------------------
 
 /// A struct representing a set of times.
-pub type TimeSet = Set<f64>;
+/// 
+/// ## Predicates
+/// 
+/// * Times must be unique.
+/// * Times must be in ascending order.
+#[derive(PartialEq, Debug)]
+pub struct TimeSet {
+    pub times: Vec<f64>
+}
 
-/// A struct representing the shape of a `TimeSet`.
-pub type TimeShape = Shape<f64>;
+/// A struct representing the differences between adjacent times in a time set.
+/// 
+/// ## Predicates
+/// 
+/// * Intervals must be positive.
+#[derive(PartialEq, Debug)]
+pub struct TimeSetShape {
+    pub intervals: Vec<f64>
+}
 
 pub mod constructors {
     use super::*;
 
-    impl ConstructResidueSet<f64> for TimeClassSet {
-        fn new(time_classes: Vec<f64>, modulus: f64) -> Self {
+    impl TimeClassSet {
+        pub fn new(time_classes: Vec<f64>, modulus: f64) -> Self {
             #[cfg(debug_assertions)]
             {
                 for &time_class in time_classes.iter() {
@@ -42,12 +93,12 @@ pub mod constructors {
                 assert!(modulus >= 0.0, "Modulus of TimeClassSet must be non-negative.");
             }
     
-            Self { residue_classes: time_classes, modulus }
+            Self { time_classes, modulus }
         }
     }
 
-    impl ConstructScaleMap<f64> for TimeScaleMap {
-        fn new(harmonics: Vec<f64>, offset: f64) -> Self {
+    impl TimeScaleMap {
+        pub fn new(harmonics: Vec<f64>, offset: f64) -> Self {
             #[cfg(debug_assertions)]
             {
                 for &harmonic in harmonics.iter() {
@@ -61,8 +112,8 @@ pub mod constructors {
         }
     }
 
-    impl ConstructIndexedResidues<f64> for TimeScaleKey {
-        fn new(time_classes: Vec<f64>, modulus: f64, root: f64) -> Self {
+    impl TimeScaleKey {
+        pub fn new(time_classes: Vec<f64>, modulus: f64, root: f64) -> Self {
             #[cfg(debug_assertions)]
             {
                 for &time_class in time_classes.iter() {
@@ -75,12 +126,12 @@ pub mod constructors {
     
             let time_classes = cyclically_order_floats(&time_classes, root);
     
-            Self { residue_classes: time_classes, modulus }
+            Self { time_classes, modulus }
         }
     }
 
-    impl ConstructScaleShape<f64> for TimeScaleShape {
-        fn new(intervals: Vec<f64>) -> Self {
+    impl TimeScaleShape {
+        pub fn new(intervals: Vec<f64>) -> Self {
             #[cfg(debug_assertions)]
             {
                 for &interval in intervals.iter() {
@@ -91,18 +142,18 @@ pub mod constructors {
         }
     }
 
-    impl ConstructSet<f64> for TimeSet {
-        fn new(times: Vec<f64>) -> Self {
+    impl TimeSet {
+        pub fn new(times: Vec<f64>) -> Self {
             let mut times = times.clone();
             times.sort_by(|a, b| a.partial_cmp(b).unwrap());
             times.dedup();
     
-            Self { numbers: times }
+            Self { times }
         }
     }
 
-    impl ConstructShape<f64> for TimeShape {
-        fn new(intervals: Vec<f64>) -> Self {
+    impl TimeSetShape {
+        pub fn new(intervals: Vec<f64>) -> Self {
             #[cfg(debug_assertions)]
             {
                 for &interval in intervals.iter() {

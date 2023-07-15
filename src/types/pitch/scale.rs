@@ -2,22 +2,58 @@ use crate::types::*;
 use crate::utility::*;
 
 /// A struct representing a set of pitch classes.
-pub type PitchClassSet = ResidueSet<i16>;
+/// 
+/// ## Predicates
+/// 
+/// * Pitch classes must be in ascending order.
+/// * Pitch classes & modulus must be non-negative.
+/// * Pitch classes must be less than the modulus.
+#[derive(PartialEq, Debug)]
+pub struct PitchClassSet {
+    pub pitch_classes: Vec<i16>,
+    pub modulus: i16
+}
 
-/// A struct representing a patterned mapping of indices to pitches.
-pub type PitchScaleMap = ScaleMap<i16>;
+/// A struct representing a patterned mapping from indices to pitches.
+/// 
+/// ## Predicates
+/// 
+/// * Harmonics must be positive, unique, and in ascending order.
+#[derive(PartialEq, Debug)]
+pub struct PitchScaleMap {
+    pub harmonics: Vec<i16>,
+    pub transposition: i16
+}
 
-/// A struct representing an indexed `PitchClassSet`.
-pub type PitchScaleKey = IndexedResidues<i16>;
+/// A struct representing an indexed pitch class set.
+/// 
+/// ## Predicates
+/// 
+/// * Pitch classes and modulus must be non-negative.
+/// * Pitch classes must be unique. 
+/// * Pitch classes must be less than the modulus. 
+/// * Pitch classes must be in cyclically ascending order.
+#[derive(PartialEq, Debug)]
+pub struct PitchScaleKey {
+    pub pitch_classes: Vec<i16>,
+    pub modulus: i16
+}
 
-/// A struct representing the "shape" of a pitch scale.
-pub type PitchScaleShape = ScaleShape<i16>;
+/// A struct representing the shape of a scale.
+/// 
+/// ## Predicates
+/// 
+/// * Intervals must be positive.
+#[derive(PartialEq, Debug)]
+pub struct PitchScaleShape {
+    pub intervals: Vec<i16>
+}
 
 pub mod constructors { 
     use super::*;
 
-    impl ConstructResidueSet<i16> for PitchClassSet {
-        fn new(pitch_classes: Vec<i16>, modulus: i16) -> Self {
+    impl PitchClassSet {
+        pub fn new(pitch_classes: Vec<i16>, modulus: i16) -> Self {
             #[cfg(debug_assertions)]
             {
                 for &pitch_class in pitch_classes.iter() {
@@ -28,12 +64,12 @@ pub mod constructors {
                 assert!(modulus >= 0, "Modulus of PitchClassSet must be non-negative.");
             }
     
-            Self { residue_classes: pitch_classes, modulus }
+            Self { pitch_classes, modulus }
         }
     }
 
-    impl ConstructScaleMap<i16> for PitchScaleMap {
-        fn new(harmonics: Vec<i16>, transposition: i16) -> Self {
+    impl PitchScaleMap {
+        pub fn new(harmonics: Vec<i16>, transposition: i16) -> Self {
             #[cfg(debug_assertions)]
             {
                 for &harmonic in harmonics.iter() {
@@ -43,12 +79,12 @@ pub mod constructors {
                 assert!(collection_is_sorted(&harmonics), "Harmonics in PitchScaleMap must be in order.");
             }
     
-            Self { harmonics, offset: transposition }
+            Self { harmonics, transposition }
         }
     }
 
-    impl ConstructIndexedResidues<i16> for PitchScaleKey {
-        fn new(pitch_classes: Vec<i16>, modulus: i16, root: i16) -> Self {
+    impl PitchScaleKey {
+        pub fn new(pitch_classes: Vec<i16>, modulus: i16, root: i16) -> Self {
             #[cfg(debug_assertions)]
             {
                 for &pitch_class in pitch_classes.iter() {
@@ -61,12 +97,12 @@ pub mod constructors {
     
             let pitch_classes = cyclically_order_vector(&pitch_classes, root);
     
-            Self { residue_classes: pitch_classes, modulus }
+            Self { pitch_classes, modulus }
         }
     }
 
-    impl ConstructScaleShape<i16> for PitchScaleShape {
-        fn new(intervals: Vec<i16>) -> Self {
+    impl PitchScaleShape {
+        pub fn new(intervals: Vec<i16>) -> Self {
             #[cfg(debug_assertions)]
             {
                 for &interval in intervals.iter() {
