@@ -2,7 +2,8 @@
 
 Harmonica is a collection of tools for the analysis, generation, and transformation of music theoretical objects, written in rust.
 
-TO-DO:
+## TO-DO:
+
 * Differentiate between ResidueModulus and CycleModulus
 * Tools for finding objects that meet criteria (FindPitchClassSet, FindChord, etc)
 * Chord/scale progressions / "PolyScales"
