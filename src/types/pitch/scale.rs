@@ -58,9 +58,9 @@ pub mod constructors {
             {
                 for &pitch_class in pitch_classes.iter() {
                     assert!(pitch_class < modulus, "Pitch classes in PitchClassSet must be less than the modulus.");
-                    assert!(collection_is_sorted(&pitch_classes), "Pitch classes in PitchClassSet must be in ascending order.");
                     assert!(pitch_class >= 0, "Pitch classes in PitchClassSet must be non-negative.");
                 }
+                assert!(collection_is_sorted(&pitch_classes), "Pitch classes in PitchClassSet must be in ascending order.");
                 assert!(modulus >= 0, "Modulus of PitchClassSet must be non-negative.");
             }
     
@@ -111,5 +111,34 @@ pub mod constructors {
             }
             Self { intervals }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    #[should_panic]
+    fn test_pitch_class_set() {
+        let pitch_class_set = PitchClassSet::new(vec![-2, 2, 3], 3);
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_pitch_scale_map() {
+        let pitch_scale_map = PitchScaleMap::new(vec![-2, 3, 2], 4);
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_pitch_scale_key() {
+        let pitch_scale_key = PitchScaleKey::new(vec![1,3,4,6], 7, 5);
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_pitch_scale_shape() {
+        let pitch_scale_shape = PitchScaleShape::new(vec![-1,2,6,2,3]);
     }
 }

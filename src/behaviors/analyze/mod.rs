@@ -11,7 +11,7 @@ pub trait Modulus<T> {
     fn modulus(&self) -> T;
 }
 
-/// A trait representing ways you can analyze a collection.
+/// A trait representing the retrieval of a collection's size.
 pub trait Len {
     /// Returns the number of elements in the collection.
     fn len(&self) -> usize; 
@@ -35,33 +35,33 @@ pub trait Stamp<T> {
 }
 
 /// A trait representing the ways you can analyze a scale.
-pub trait AnalyzePrimality<T>: Modulus<T> {
+pub trait Prime<T>: Modulus<T> {
     /// Gets the prime subscale.
-    fn get_prime(&self) -> Self;
+    fn prime(&self) -> Self;
 
     /// Reports whether the scale is prime (aperiodic).
     fn is_prime(&self) -> bool;
 }
 
 /// A trait representing the counting of a scale's modes.
-pub trait CountModes<T>: AnalyzePrimality<T> + Len
+pub trait CountModes<T>: Prime<T> + Len
 where
     Self: Sized
 {
     /// Counts the number of unique modes in the scale.
     fn count_modes(&self) -> usize {
-        self.get_prime().len()
+        self.prime().len()
     }
 }
 
 /// A trait representing the counting of a pitch scale's transpositions.
-pub trait CountTranspositions: AnalyzePrimality<i16>
+pub trait CountTranspositions: Prime<i16>
 where
     Self: Sized
 {    
     /// Counts the number of unique transpositions in the scale.
     fn count_transpositions(&self) -> usize {
-        self.get_prime().modulus() as usize
+        self.prime().modulus() as usize
     }
 }
 
@@ -96,13 +96,13 @@ pub mod individual {
 pub mod len {
     use super::*;
 
-    impl Len for PitchSet {
+    impl Len for Chord {
         fn len(&self) -> usize {
             self.pitches.len()
         }
     }
 
-    impl Len for PitchSetShape {
+    impl Len for ChordShape {
         fn len(&self) -> usize {
             self.intervals.len()
         }
@@ -151,6 +151,30 @@ pub mod len {
     }
     
     impl Len for MelodyClassShape {
+        fn len(&self) -> usize {
+            self.interval_classes.len()
+        }
+    }
+
+    impl Len for PitchCycle {
+        fn len(&self) -> usize {
+            self.pitches.len()
+        }
+    }
+    
+    impl Len for IntervalCycle {
+        fn len(&self) -> usize {
+            self.intervals.len()
+        }
+    }
+    
+    impl Len for PitchClassCycle {
+        fn len(&self) -> usize {
+            self.pitch_classes.len()
+        }
+    }
+    
+    impl Len for IntervalClassCycle {
         fn len(&self) -> usize {
             self.interval_classes.len()
         }
@@ -233,6 +257,18 @@ pub mod modulus {
         }
     }
 
+    impl Modulus<i16> for PitchClassCycle {
+        fn modulus(&self) -> i16 {
+            self.modulus
+        }
+    }
+
+    impl Modulus<i16> for IntervalClassCycle {
+        fn modulus(&self) -> i16 {
+            self.modulus
+        }
+    }
+
     impl Modulus<f64> for TimeClassSet {
         fn modulus(&self) -> f64 {
             self.modulus
@@ -262,8 +298,8 @@ pub mod modulus {
 pub mod shape {
     use super::*;
 
-    impl Shape for PitchSet {
-        type Output = PitchSetShape;
+    impl Shape for Chord {
+        type Output = ChordShape;
 
         fn shape(&self) -> Self::Output {
             let intervals = self.pitches
@@ -338,6 +374,34 @@ pub mod shape {
             let interval_classes = self.pitch_classes
                 .windows(2)
                 .map(|w| (w[1] - w[0]).rem_euclid(self.modulus))
+                .collect();
+            
+            Self::Output::new(interval_classes, self.modulus())
+        }
+    }
+
+    impl Shape for PitchCycle {
+        type Output = IntervalCycle;
+
+        fn shape(&self) -> Self::Output {
+            let intervals = self.pitches
+                .iter()
+                .zip(self.pitches.iter().cycle().skip(1))
+                .map(|(&curr, &next)| next - curr)
+                .collect();
+            
+            Self::Output::new(intervals)
+        }
+    }
+
+    impl Shape for PitchClassCycle {
+        type Output = IntervalClassCycle;
+
+        fn shape(&self) -> Self::Output {
+            let interval_classes = self.pitch_classes
+                .iter()
+                .zip(self.pitch_classes.iter().cycle().skip(1))
+                .map(|(&curr, &next)| (next - curr).rem_euclid(self.modulus()))
                 .collect();
             
             Self::Output::new(interval_classes, self.modulus())
@@ -420,8 +484,8 @@ pub mod stamp {
         }
     }
 
-    impl Stamp<i16> for PitchSetShape {
-        type Output = PitchSet;
+    impl Stamp<i16> for ChordShape {
+        type Output = Chord;
 
         fn stamp(&self, start: i16) -> Self::Output {
             let numbers = self.intervals.iter().fold(vec![start], |mut acc, &diff| {
@@ -445,15 +509,18 @@ pub mod stamp {
             }
 
             let pitch_classes: Vec<i16> = std::iter::once(start)
-                .chain(self.intervals.iter().scan(start, |acc, &diff| {
+                .chain(self.intervals.iter().take(self.len() - 1).scan(start, |acc, &diff| {
                     *acc += diff;
                     Some(*acc)
                 }))
                 .collect();
     
-            let pitch_classes = pitch_classes.iter()
+            let pitch_classes: Vec<i16> = pitch_classes.iter()
                 .map(|num| (*num).rem_euclid(self.modulus()))
                 .collect();
+
+            let mut pitch_classes = pitch_classes.clone();
+            pitch_classes.sort();
             
             Self::Output::new(pitch_classes, self.modulus())
         }
@@ -490,6 +557,40 @@ pub mod stamp {
                 .collect();
     
             pitch_classes.iter_mut().map(|num| *num = num.rem_euclid(self.modulus())).collect::<Vec<_>>();
+            
+            Self::Output::new(pitch_classes, self.modulus())
+        }
+    }
+
+    impl Stamp<i16> for IntervalCycle {
+        type Output = PitchCycle;
+
+        fn stamp(&self, start: i16) -> Self::Output {
+            let pitches: Vec<i16> = std::iter::once(start)
+                .chain(self.intervals.iter().take(self.len() - 1).scan(start, |acc, &diff| {
+                    *acc += diff;
+                    Some(*acc)
+                }))
+                .collect();
+            
+            Self::Output::new(pitches)
+        }
+    }
+
+    impl Stamp<i16> for IntervalClassCycle {
+        type Output = PitchClassCycle;
+
+        fn stamp(&self, start: i16) -> Self::Output {
+            let pitch_classes: Vec<i16> = std::iter::once(start)
+                .chain(self.interval_classes.iter().take(self.len() - 1).scan(start, |acc, &diff| {
+                    *acc += diff;
+                    Some(*acc)
+                }))
+                .collect();
+    
+            let pitches: Vec<i16> = pitch_classes.iter()
+                .map(|num| (*num).rem_euclid(self.modulus()))
+                .collect();
             
             Self::Output::new(pitch_classes, self.modulus())
         }
@@ -537,28 +638,31 @@ pub mod stamp {
             }
 
             let time_classes: Vec<f64> = std::iter::once(start)
-                .chain(self.intervals.iter().scan(start, |acc, &diff| {
+                .chain(self.intervals.iter().take(self.len() - 1).scan(start, |acc, &diff| {
                     *acc += diff;
                     Some(*acc)
                 }))
                 .collect();
     
-            let time_classes = time_classes.iter()
+            let time_classes: Vec<f64> = time_classes.iter()
                 .map(|num| (*num).rem_euclid(self.modulus()))
                 .collect();
+
+            let mut time_classes = time_classes.clone();
+            time_classes.sort_by(|a, b| a.partial_cmp(b).unwrap());
             
             Self::Output::new(time_classes, self.modulus())
         }
     }
 }
 
-pub mod analyze_primality {
+pub mod prime {
     use super::*;
 
-    impl AnalyzePrimality<i16> for PitchClassSet {
-        fn get_prime(&self) -> Self {
+    impl Prime<i16> for PitchClassSet {
+        fn prime(&self) -> Self {
             let smallest_pitch_class = self.pitch_classes.iter().min().cloned().unwrap();
-            self.shape().get_prime().stamp(smallest_pitch_class)
+            self.shape().prime().stamp(smallest_pitch_class)
         }
 
         fn is_prime(&self) -> bool {
@@ -566,9 +670,9 @@ pub mod analyze_primality {
         }
     }
 
-    impl AnalyzePrimality<i16> for PitchScaleMap {
-        fn get_prime(&self) -> Self {
-            self.shape().get_prime().stamp_to_scale_map(self.transposition)
+    impl Prime<i16> for PitchScaleMap {
+        fn prime(&self) -> Self {
+            self.shape().prime().stamp_to_scale_map(self.transposition)
         }
 
         fn is_prime(&self) -> bool {
@@ -576,9 +680,10 @@ pub mod analyze_primality {
         }
     }
 
-    impl AnalyzePrimality<i16> for PitchScaleKey {
-        fn get_prime(&self) -> Self {
-            self.shape().get_prime().stamp_to_scale_key(self.root())
+    impl Prime<i16> for PitchScaleKey {
+        fn prime(&self) -> Self {
+            let prime = self.shape().prime();
+            prime.stamp_to_scale_key(self.root().rem_euclid(prime.modulus()))
         }
 
         fn is_prime(&self) -> bool {
@@ -586,8 +691,8 @@ pub mod analyze_primality {
         }
     }
 
-    impl AnalyzePrimality<i16> for PitchScaleShape {
-        fn get_prime(&self) -> Self {
+    impl Prime<i16> for PitchScaleShape {
+        fn prime(&self) -> Self {
             let intervals = find_aperiodic_substring(&self.intervals);
 
             Self::new(intervals)
@@ -600,10 +705,61 @@ pub mod analyze_primality {
         }
     }
 
-    impl AnalyzePrimality<f64> for TimeClassSet {
-        fn get_prime(&self) -> Self {
+    // Need to differentiate between ResidueModulus and CycleModulus 
+    // before I add these. 
+
+    // impl AnalyzePrimality<i16> for PitchCycle {
+    //     fn get_prime(&self) -> Self {
+    //         self.shape().get_prime().stamp(self.pitches.first())
+    //     }
+
+    //     fn is_prime(&self) -> bool {
+    //         self.shape().is_prime()
+    //     }
+    // }
+
+    // impl AnalyzePrimality<i16> for IntervalCycle {
+    //     fn get_prime(&self) -> Self {
+    //         let prime = find_aperiodic_substring(&self.intervals);
+
+    //         Self::new(prime)
+    //     }
+
+    //     fn is_prime(&self) -> bool {
+    //         let prime = find_aperiodic_substring(&self.intervals);
+
+    //         self.intervals == prime
+    //     }
+    // }
+
+    // impl AnalyzePrimality<i16> for PitchClassCycle {
+    //     fn get_prime(&self) -> Self {
+    //         self.shape().get_prime().stamp(self.pitch_classes.first())
+    //     }
+
+    //     fn is_prime(&self) -> bool {
+    //         self.shape().is_prime()
+    //     }
+    // }
+
+    // impl AnalyzePrimality<i16> for IntervalClassCycle {
+    //     fn get_prime(&self) -> Self {
+    //         let prime = find_aperiodic_substring(&self.interval_classes);
+
+    //         Self::new(prime, self.modulus())
+    //     }
+
+    //     fn is_prime(&self) -> bool {
+    //         let prime = find_aperiodic_substring(&self.interval_classes);
+
+    //         self.interval_classes == prime
+    //     }
+    // }
+
+    impl Prime<f64> for TimeClassSet {
+        fn prime(&self) -> Self {
             let smallest_time_class = self.time_classes.iter().min_by(|a, b| a.partial_cmp(b).unwrap()).cloned().unwrap();
-            self.shape().get_prime().stamp(smallest_time_class)
+            self.shape().prime().stamp(smallest_time_class)
         }
 
         fn is_prime(&self) -> bool {
@@ -611,9 +767,9 @@ pub mod analyze_primality {
         }
     }
 
-    impl AnalyzePrimality<f64> for TimeScaleMap {
-        fn get_prime(&self) -> Self {
-            self.shape().get_prime().stamp_to_scale_map(self.offset)
+    impl Prime<f64> for TimeScaleMap {
+        fn prime(&self) -> Self {
+            self.shape().prime().stamp_to_scale_map(self.offset)
         }
 
         fn is_prime(&self) -> bool {
@@ -621,9 +777,9 @@ pub mod analyze_primality {
         }
     }
 
-    impl AnalyzePrimality<f64> for TimeScaleKey {
-        fn get_prime(&self) -> Self {
-            self.shape().get_prime().stamp_to_scale_key(self.root())
+    impl Prime<f64> for TimeScaleKey {
+        fn prime(&self) -> Self {
+            self.shape().prime().stamp_to_scale_key(self.root())
         }
 
         fn is_prime(&self) -> bool {
@@ -631,8 +787,8 @@ pub mod analyze_primality {
         }
     }
 
-    impl AnalyzePrimality<f64> for TimeScaleShape {
-        fn get_prime(&self) -> Self {
+    impl Prime<f64> for TimeScaleShape {
+        fn prime(&self) -> Self {
             let intervals = find_aperiodic_substring(&self.intervals);
 
             Self::new(intervals)
@@ -701,7 +857,7 @@ pub mod eval {
 pub mod classify {
     use super::*;
 
-    impl Classify<i16> for PitchSet {
+    impl Classify<i16> for Chord {
         type Output = PitchClassSet;
 
         fn classify(&self, modulus: i16) -> Self::Output {
@@ -709,6 +865,10 @@ pub mod classify {
                 .iter()
                 .map(|n| (*n).rem_euclid(modulus))
                 .collect();
+
+            let mut pitch_classes = pitch_classes.clone();
+            pitch_classes.dedup();
+            pitch_classes.sort();
 
             Self::Output::new(pitch_classes, modulus)
         }
@@ -750,6 +910,256 @@ pub mod classify {
                 .collect();
 
             Self::Output::new(time_classes, modulus)
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    mod individual {
+        use super::*;
+
+        #[test]
+        fn test_pitch_scale_key() {
+            let pitch_scale_key = PitchScaleKey::new(vec![0,2,3,5,7], 9, 3);
+
+            assert_eq!(pitch_scale_key.root(), 3);
+        }
+
+        #[test]
+        fn test_time_scale_key() {
+            let time_scale_key = TimeScaleKey::new(vec![0.1, 2.5, 3.68, 4.97], 8.2, 3.68);
+
+            assert_eq!(time_scale_key.root(), 3.68);
+        }
+    }
+
+    mod shape {
+        use super::*;
+
+        #[test]
+        fn test_chord() {
+            let chord = Chord::new(vec![1,4,8,12]);
+            let shape = ChordShape::new(vec![3,4,4]);
+
+            assert_eq!(chord.shape(), shape);
+        }
+
+        #[test]
+        fn test_pitch_class_set() {
+            let pitch_class_set = PitchClassSet::new(vec![0,3,7], 9);
+            let pitch_scale_shape = PitchScaleShape::new(vec![3,4,2]);
+
+            assert_eq!(pitch_class_set.shape(), pitch_scale_shape);
+        }
+
+        #[test]
+        fn test_pitch_scale_map() {
+            let pitch_scale_map = PitchScaleMap::new(vec![2,4,5,7], 2);
+            let pitch_scale_shape = PitchScaleShape::new(vec![2,2,1,2]);
+
+            assert_eq!(pitch_scale_map.shape(), pitch_scale_shape);
+        }
+
+        #[test]
+        fn test_pitch_scale_key() {
+            let pitch_scale_key = PitchScaleKey::new(vec![0,1,5,7], 9, 5);
+            let pitch_scale_shape = PitchScaleShape::new(vec![2,2,1,4]);
+
+            assert_eq!(pitch_scale_key.shape(), pitch_scale_shape);
+        }
+
+        #[test]
+        fn test_melody() {
+            let melody = Melody::new(vec![-4,7,1,3,1,1,7,4]);
+            let melody_shape = MelodyShape::new(vec![11,-6,2,-2,0,6,-3]);
+
+            assert_eq!(melody.shape(), melody_shape);
+        }
+
+        #[test]
+        fn test_melody_class() {
+            let melody_class = MelodyClass::new(vec![1,6,3,7,2,5,5,3], 9);
+            let melody_class_shape = MelodyClassShape::new(vec![5,6,4,4,3,0,7], 9);
+
+            assert_eq!(melody_class.shape(), melody_class_shape);
+        }
+
+        #[test]
+        fn test_pitch_cycle() {
+            let pitch_cycle = PitchCycle::new(vec![2,7,5,1,-5]);
+            let interval_cycle = IntervalCycle::new(vec![5,-2,-4,-6,7]);
+
+            assert_eq!(pitch_cycle.shape(), interval_cycle);
+        }
+
+        #[test]
+        fn test_pitch_class_cycle() {
+            let pitch_class_cycle = PitchClassCycle::new(vec![0,4,2,4], 12);
+            let interval_class_cycle = IntervalClassCycle::new(vec![4,10,2,8], 12);
+
+            assert_eq!(pitch_class_cycle.shape(), interval_class_cycle);
+        }
+
+        // Doesn't work cuz of fucking floats! :3
+        // #[test]
+        // fn test_time_set() {
+        //     let time_set = TimeSet::new(vec![0.4, 1.2, 2.4, 3.33]);
+        //     let time_set_shape = TimeSetShape::new(vec![0.8, 1.2, 0.93]);
+
+        //     assert_eq!(time_set.shape(), time_set_shape);
+        // }
+    }
+
+    mod stamp {
+        use super::*;
+
+        #[test]
+        fn test_pitch_to_scale_map() {
+            let pitch_scale_shape = PitchScaleShape::new(vec![2,6,4]);
+            let pitch_scale_map = PitchScaleMap::new(vec![2,8,12], 3);
+
+            assert_eq!(pitch_scale_shape.stamp_to_scale_map(3), pitch_scale_map);
+        }
+
+        #[test]
+        fn test_pitch_to_scale_key() {
+            let pitch_scale_shape = PitchScaleShape::new(vec![2,6,4]);
+            let pitch_scale_key = PitchScaleKey::new(vec![3,7,9], 12, 7);
+
+            assert_eq!(pitch_scale_shape.stamp_to_scale_key(7), pitch_scale_key);
+        }
+
+        #[test]
+        fn test_chord_shape() {
+            let chord_shape = ChordShape::new(vec![2,7,3,5]);
+            let chord = Chord::new(vec![4,6,13,16,21]);
+
+            assert_eq!(chord_shape.stamp(4), chord);
+        }
+
+        #[test]
+        fn test_pitch_scale_shape() {
+            let pitch_scale_shape = PitchScaleShape::new(vec![2,6,4]);
+            let pitch_class_set = PitchClassSet::new(vec![0,6,10], 12);
+
+            assert_eq!(pitch_scale_shape.stamp(10), pitch_class_set);
+        }
+
+        #[test]
+        fn test_melody_shape() {
+            let melody_shape = MelodyShape::new(vec![2,7,3,-6,5]);
+            let melody = Melody::new(vec![4,6,13,16,10,15]);
+
+            assert_eq!(melody_shape.stamp(4), melody);
+        }
+
+        #[test]
+        fn test_melody_class_shape() {
+            let melody_class_shape = MelodyClassShape::new(vec![0,0,5,8], 12);
+            let melody_class = MelodyClass::new(vec![2,2,2,7,3], 12);
+
+            assert_eq!(melody_class_shape.stamp(2), melody_class);
+        }
+
+        #[test]
+        fn test_interval_cycle() {
+            let interval_cycle = IntervalCycle::new(vec![3,-6,7,-1,-3]);
+            let pitch_cycle = PitchCycle::new(vec![8,11,5,12,11]);
+
+            assert_eq!(interval_cycle.stamp(8), pitch_cycle);
+        }
+
+        #[test]
+        fn test_interval_class_cycle() {
+            let interval_class_cycle = IntervalClassCycle::new(vec![2,5,3,5,9], 12);
+            let pitch_class_cycle = PitchClassCycle::new(vec![4,6,11,2,7], 12);
+
+            assert_eq!(interval_class_cycle.stamp(4), pitch_class_cycle);
+        }
+    }
+
+    mod prime {
+        use super::*;
+
+        #[test]
+        fn test_pitch_class_set() {
+            let pitch_class_set = PitchClassSet::new(vec![0,2,3,5,6,8,9,11], 12);
+            let prime = PitchClassSet::new(vec![0,2], 3);
+
+            assert_eq!(pitch_class_set.prime(), prime);
+        }
+
+        #[test]
+        fn test_pitch_scale_map() {
+            let pitch_scale_map = PitchScaleMap::new(vec![2,3,5,6], 2);
+            let prime = PitchScaleMap::new(vec![2,3], 2);
+
+            assert_eq!(pitch_scale_map.prime(), prime);
+        }
+
+        #[test]
+        fn test_pitch_scale_key() {
+            let pitch_scale_key = PitchScaleKey::new(vec![0,1,3,4], 6, 3);
+            let prime = PitchScaleKey::new(vec![0,1], 3, 0);
+
+            assert_eq!(pitch_scale_key.prime(), prime);
+        }
+
+        #[test]
+        fn test_pitch_scale_shape() {
+            let pitch_scale_shape = PitchScaleShape::new(vec![2,5,4,2,5,4]);
+            let prime = PitchScaleShape::new(vec![2,5,4]);
+
+            assert_eq!(pitch_scale_shape.prime(), prime);
+        }
+    }
+
+    mod eval {
+        use super::*;
+
+        #[test]
+        fn test_pitch_scale_key() {
+            let pitch_scale_key = PitchScaleKey::new(vec![2,3,6,7,9], 12, 6);
+            
+            assert_eq!(pitch_scale_key.eval(3), 2);
+        }
+
+        #[test]
+        fn test_pitch_scale_map() {
+            let pitch_scale_map = PitchScaleMap::new(vec![2,3,5,7], 3);
+
+            assert_eq!(pitch_scale_map.eval(8), 17);
+        }
+    }
+
+    mod classify {
+        use super::*;
+
+        #[test]
+        fn test_chord() {
+            let chord = Chord::new(vec![-3,5,8,25]);
+            let pitch_class_set = PitchClassSet::new(vec![1,5,8,9], 12);
+
+            assert_eq!(chord.classify(12), pitch_class_set);
+        }
+
+        #[test]
+        fn test_melody() {
+            let melody = Melody::new(vec![-4,8,6,6,2,7,19]);
+            let melody_class = MelodyClass::new(vec![8,8,6,6,2,7,7], 12);
+
+            assert_eq!(melody.classify(12), melody_class);
+        }
+
+        #[test]
+        fn test_melody_shape() {
+            let melody_shape = MelodyShape::new(vec![2,15,-5,4,14,7]);
+            let melody_class_shape = MelodyClassShape::new(vec![2,3,7,4,2,7], 12);
+
+            assert_eq!(melody_shape.classify(12), melody_class_shape);
         }
     }
 }

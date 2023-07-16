@@ -2,6 +2,31 @@ use crate::types::*;
 use crate::utility::*;
 
 //-----------------------------------------------
+//--------------------- SET ---------------------
+//-----------------------------------------------
+
+/// A struct representing a set of times.
+/// 
+/// ## Predicates
+/// 
+/// * Times must be unique.
+/// * Times must be in ascending order.
+#[derive(PartialEq, Debug)]
+pub struct TimeSet {
+    pub times: Vec<f64>
+}
+
+/// A struct representing the differences between adjacent times in a time set.
+/// 
+/// ## Predicates
+/// 
+/// * Intervals must be positive.
+#[derive(PartialEq, Debug)]
+pub struct TimeSetShape {
+    pub intervals: Vec<f64>
+}
+
+//-----------------------------------------------
 //-------------------- SCALE --------------------
 //-----------------------------------------------
 
@@ -53,33 +78,33 @@ pub struct TimeScaleShape {
     pub intervals: Vec<f64>
 }
 
-//-----------------------------------------------
-//--------------------- SET ---------------------
-//-----------------------------------------------
-
-/// A struct representing a set of times.
-/// 
-/// ## Predicates
-/// 
-/// * Times must be unique.
-/// * Times must be in ascending order.
-#[derive(PartialEq, Debug)]
-pub struct TimeSet {
-    pub times: Vec<f64>
-}
-
-/// A struct representing the differences between adjacent times in a time set.
-/// 
-/// ## Predicates
-/// 
-/// * Intervals must be positive.
-#[derive(PartialEq, Debug)]
-pub struct TimeSetShape {
-    pub intervals: Vec<f64>
-}
+//---------------------------------------------//
 
 pub mod constructors {
     use super::*;
+
+    impl TimeSet {
+        pub fn new(times: Vec<f64>) -> Self {
+            let mut times = times.clone();
+            times.sort_by(|a, b| a.partial_cmp(b).unwrap());
+            times.dedup();
+    
+            Self { times }
+        }
+    }
+
+    impl TimeSetShape {
+        pub fn new(intervals: Vec<f64>) -> Self {
+            #[cfg(debug_assertions)]
+            {
+                for &interval in intervals.iter() {
+                    assert!(interval > 0.0, "Intervals must be positive.");
+                }
+            }
+    
+            Self { intervals }
+        }
+    }
 
     impl TimeClassSet {
         pub fn new(time_classes: Vec<f64>, modulus: f64) -> Self {
@@ -141,27 +166,39 @@ pub mod constructors {
             Self { intervals }
         }
     }
+}
 
-    impl TimeSet {
-        pub fn new(times: Vec<f64>) -> Self {
-            let mut times = times.clone();
-            times.sort_by(|a, b| a.partial_cmp(b).unwrap());
-            times.dedup();
-    
-            Self { times }
-        }
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    #[should_panic]
+    fn test_time_shape() {
+        let time_set_shape = TimeSetShape::new(vec![-1.0, 0.0, 1.2]);
     }
 
-    impl TimeSetShape {
-        pub fn new(intervals: Vec<f64>) -> Self {
-            #[cfg(debug_assertions)]
-            {
-                for &interval in intervals.iter() {
-                    assert!(interval > 0.0, "Intervals must be positive.");
-                }
-            }
-    
-            Self { intervals }
-        }
+    #[test]
+    #[should_panic]
+    fn test_time_class_set() {
+        let time_class_set = TimeClassSet::new(vec![-1.0, 0.1, 3.2], 2.4);
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_time_scale_map() {
+        let time_scale_map = TimeScaleMap::new(vec![-1.2, 3.2, 1.32], 1.2);
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_time_scale_key() {
+        let time_scale_key = TimeScaleKey::new(vec![1.2, 3.3, 4.5], 6.0, 2.2);
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_time_scale_shape() {
+        let time_scale_shape = TimeScaleShape::new(vec![-1.0, 1.4, 0.23, 0.11]);
     }
 }

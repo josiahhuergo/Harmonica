@@ -45,7 +45,7 @@ pub trait Offset {
 pub mod rotate {
     use super::*;
 
-    impl Rotate for PitchSetShape {
+    impl Rotate for ChordShape {
         fn rotate(&self, n: i16) -> Self {
             let mut intervals = self.intervals.clone();
             intervals.rotate_left(n.rem_euclid(self.len() as i16) as usize);
@@ -208,7 +208,7 @@ pub mod rotate_mode {
 pub mod repeat {
     use super::*;
 
-    impl Repeat for PitchSetShape {
+    impl Repeat for ChordShape {
         fn repeat(&self, n: usize) -> Self {
             Self::new(repeat_list(&self.intervals, n))
         }
@@ -292,7 +292,7 @@ pub mod repeat {
 pub mod transpose {
     use super::*;
 
-    impl Transpose for PitchSet {
+    impl Transpose for Chord {
         fn transpose(&self, amount: i16) -> Self {
             let pitches: Vec<i16> = self.pitches
                 .iter()
@@ -352,6 +352,28 @@ pub mod transpose {
             Self::new(residue_classes, self.modulus())
         }
     }
+
+    impl Transpose for PitchCycle {
+        fn transpose(&self, amount: i16) -> Self {
+            let numbers: Vec<i16> = self.pitches
+                .iter()
+                .map(|n| n + amount)
+                .collect();
+
+            Self::new(numbers)
+        }
+    }
+
+    impl Transpose for PitchClassCycle {
+        fn transpose(&self, amount: i16) -> Self {
+            let residue_classes: Vec<i16> = self.pitch_classes
+                .iter()
+                .map(|n| (n + amount).rem_euclid(self.modulus()))
+                .collect();
+
+            Self::new(residue_classes, self.modulus())
+        }
+    }
 }
 
 pub mod offset {
@@ -393,6 +415,175 @@ pub mod offset {
                 .collect();
 
             Self::new(time_classes, self.modulus(), self.root() + amount)
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    mod rotate {
+        use super::*;
+
+        #[test]
+        fn test_chord_shape() {
+            let chord_shape = ChordShape::new(vec![4,6,3,2]);
+            let rotation = chord_shape.rotate(2);
+            let result = ChordShape::new(vec![3,2,4,6]);
+
+            assert_eq!(rotation, result);
+        }
+
+        #[test]
+        fn test_pitch_scale_shape() {
+            let pitch_scale_shape = PitchScaleShape::new(vec![4,7,2,4]);
+            let rotation = pitch_scale_shape.rotate(2);
+            let result = PitchScaleShape::new(vec![2,4,4,7]);
+
+            assert_eq!(rotation, result);
+        }
+
+        #[test]
+        fn test_pitch_cycle() {
+            let pitch_cycle = PitchCycle::new(vec![2,7,3,-3]);
+            let rotation = pitch_cycle.rotate(2);
+            let result = PitchCycle::new(vec![3,-3,2,7]);
+
+            assert_eq!(rotation, result);
+        }
+
+        #[test]
+        fn test_interval_cycle() {
+            let interval_cycle = IntervalCycle::new(vec![2,7,3,-3]);
+            let rotation = interval_cycle.rotate(2);
+            let result = IntervalCycle::new(vec![3,-3,2,7]);
+
+            assert_eq!(rotation, result);
+        }
+
+        #[test]
+        fn test_pitch_class_cycle() {
+            let pitch_class_cycle = PitchClassCycle::new(vec![2,7,3,3], 12);
+            let rotation = pitch_class_cycle.rotate(2);
+            let result = PitchClassCycle::new(vec![3,3,2,7], 12);
+
+            assert_eq!(rotation, result);
+        }
+
+        #[test]
+        fn test_interval_class_cycle() {
+            let interval_class_cycle = IntervalClassCycle::new(vec![2,7,3,3], 12);
+            let rotation = interval_class_cycle.rotate(2);
+            let result = IntervalClassCycle::new(vec![3,3,2,7], 12);
+
+            assert_eq!(rotation, result);
+        }
+    }
+
+    mod rotate_mode {
+        use super::*;
+
+        mod parallel {
+            use super::*;
+
+            #[test]
+            fn test_pitch_scale_map() {
+                let pitch_scale_map = PitchScaleMap::new(vec![2,3,5,7], 2);
+                let rotation = pitch_scale_map.parallel_rotate(2);
+                let result = PitchScaleMap::new(vec![2,4,6,7], 2);
+
+                assert_eq!(rotation, result);
+            }
+
+            #[test]
+            fn test_pitch_scale_key() {
+                let pitch_scale_key = PitchScaleKey::new(vec![0,2,3,5], 7, 0);
+                let rotation = pitch_scale_key.parallel_rotate(2);
+                let result = PitchScaleKey::new(vec![0,2,4,6], 7, 0);
+
+                assert_eq!(rotation, result);
+            }
+        }
+
+        mod relative {
+            use super::*;
+
+            #[test]
+            fn test_pitch_scale_map() {
+                let pitch_scale_map = PitchScaleMap::new(vec![2,3,5,7], 2);
+                let rotation = pitch_scale_map.relative_rotate(2);
+                let result = PitchScaleMap::new(vec![2,4,6,7], 5);
+
+                assert_eq!(rotation, result);
+            }
+
+            #[test]
+            fn test_pitch_scale_key() {
+                let pitch_scale_key = PitchScaleKey::new(vec![0,2,3,5], 7, 0);
+                let rotation = pitch_scale_key.relative_rotate(2);
+                let result = PitchScaleKey::new(vec![0,2,3,5], 7, 3);
+
+                assert_eq!(rotation, result);
+            }
+        }
+    }
+
+    mod repeat {
+        use super::*;
+
+        #[test]
+        fn test_repeat_melody() {
+            let melody = Melody::new(vec![2,7,3,4,8]);
+            let repeat = melody.repeat(2);
+            let result = Melody::new(vec![2,7,3,4,8,2,7,3,4,8]);
+
+            assert_eq!(repeat, result);
+        }
+
+        #[test]
+        fn test_stretch_melody() {
+            let melody = Melody::new(vec![2,7,3,4,8]);
+            let stretch = melody.stretch(2);
+            let result = Melody::new(vec![2,2,7,7,3,3,4,4,8,8]);
+
+            assert_eq!(stretch, result);
+        }
+    }
+
+    mod transpose {
+        use super::*;
+
+        #[test]
+        fn test_chord() {
+            let chord = Chord::new(vec![0,3,6,12]);
+            let transposition = Chord::new(vec![-4,-1,2,8]);
+
+            assert_eq!(chord.transpose(-4), transposition);
+        }
+
+        #[test]
+        fn test_pitch_class_set() {
+            let pitch_class_set = PitchClassSet::new(vec![0,2,3,6,9], 12);
+            let transposition = PitchClassSet::new(vec![0,1,4,7,10], 12);
+
+            assert_eq!(pitch_class_set.transpose(-2), transposition);
+        }
+
+        #[test]
+        fn test_pitch_scale_map() {
+            let pitch_scale_map = PitchScaleMap::new(vec![2,3,5,7], 3);
+            let transposition = PitchScaleMap::new(vec![2,3,5,7], 11);
+
+            assert_eq!(pitch_scale_map.transpose(8), transposition);
+        }
+
+        #[test]
+        fn test_pitch_scale_key() {
+            let pitch_scale_key = PitchScaleKey::new(vec![0,2,3,5], 7, 3);
+            let transposition = PitchScaleKey::new(vec![0,1,3,5], 7, 1);
+
+            assert_eq!(pitch_scale_key.transpose(-2), transposition);
         }
     }
 }

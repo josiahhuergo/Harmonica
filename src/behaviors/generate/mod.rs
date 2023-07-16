@@ -16,14 +16,14 @@ impl PitchScaleMap {
     /// # Example
     /// 
     /// ```
-    /// use harmonica::pitch::scale::ScaleMap;
+    /// use harmonica::types::pitch::scale::PitchScaleMap;
     /// 
-    /// let scalemap1: ScaleMap = ScaleMap::new(vec![2,3,5], 2);
-    /// let scalemap2: ScaleMap = ScaleMap::new(vec![1,3], 1);
+    /// let scalemap1 = PitchScaleMap::new(vec![2,3,5], 2);
+    /// let scalemap2 = PitchScaleMap::new(vec![1,3], 1);
     /// 
-    /// let composition: ScaleMap = scalemap1.compose(&scalemap2);
+    /// let composition = scalemap1.compose(&scalemap2);
     /// 
-    /// // composition == ScaleMap { harmonics: vec![3,4,7,10,12,15], transposition: 4 }
+    /// // composition == PitchScaleMap { harmonics: vec![3,4,7,10,12,15], transposition: 4 }
     /// ```
     pub fn compose(&self, other: &Self) -> Self {
         let new_t = other.eval(self.transposition);
@@ -35,5 +35,19 @@ impl PitchScaleMap {
         }
 
         Self::new(pattern, new_t)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_compose() {
+        let scale_map1 = PitchScaleMap::new(vec![2,3,5], 2);
+        let scale_map2 = PitchScaleMap::new(vec![1,3], 1);
+        let result = PitchScaleMap::new(vec![3,4,7,10,12,15], 4);
+
+        assert_eq!(scale_map1.compose(&scale_map2), result);
     }
 }

@@ -87,8 +87,10 @@ pub fn collection_is_unique<T: Eq + std::hash::Hash>(collection: &[T]) -> bool {
     collection.len() == set.len()
 }
 
-pub fn collection_is_sorted<T: Ord>(collection: &[T]) -> bool {
-    collection.windows(2).all(|pair: &[T]| pair[0] <= pair[1])
+pub fn collection_is_sorted<T: Ord + Clone>(collection: &[T]) -> bool {
+    let mut sorted_collection = collection.to_vec();
+    sorted_collection.sort();
+    collection == sorted_collection
 }
 
 pub fn collection_is_cyclically_ascending<T: Ord>(collection: &[T]) -> bool {
