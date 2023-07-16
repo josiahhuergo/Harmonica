@@ -1,6 +1,6 @@
 # Harmonica
 
-Harmonica is a collection of tools for the analysis, generation, and transformation of music theoretical objects, written in rust.
+Harmonica is a collection of tools for the analysis, generation, and transformation of music theoretical objects, such as scales, chords, melodies, and more.
 
 ## TO-DO:
 
