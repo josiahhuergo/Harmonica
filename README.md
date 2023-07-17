@@ -4,7 +4,7 @@ Harmonica is a collection of tools for the analysis, generation, and transformat
 
 ## TO-DO:
 
-* Differentiate between ResidueModulus and CycleModulus
+* Differentiate between Modulus and MelodicModulus
 * Tools for finding objects that meet criteria (FindPitchClassSet, FindChord, etc)
 * Chord/scale progressions / "PolyScales"
 * ScaleMaps but for melodies (to solve the problem of representing "divergent melodic cycles" whose pitch cycles are infinite and can't be represented with a finite vector)
