@@ -3,7 +3,6 @@
 Harmonica is a collection of tools for the analysis, generation, and transformation of music theoretical objects, such as scales, chords, melodies, and more.
 
 ## TO-DO:
-* Differentiate between Modulus and MelodicModulus
 * Tools for finding objects that meet criteria (FindPitchClassSet, FindChord, etc)
 * Chord/scale progressions / "PolyScales"
 * Maps (like ScaleMaps) that relative_rotate whenever they're evaluated ("RelativeMaps"?)
