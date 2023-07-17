@@ -145,8 +145,7 @@ pub mod rotate_mode {
         }
     }
 
-    impl RotateMode for PitchScaleKey
-    {
+    impl RotateMode for PitchScaleKey {
         fn parallel_rotate(&self, amount: i16) -> Self {
             let t = self.pitch_classes[amount.rem_euclid(self.len() as i16) as usize] - self.root();
 
@@ -160,6 +159,32 @@ pub mod rotate_mode {
     
         fn relative_rotate(&self, amount: i16) -> Self {
             Self::new(self.pitch_classes.clone(), self.modulus(), self.eval(amount.rem_euclid(self.len() as i16)))
+        }
+    }
+
+    impl RotateMode for MelodicMap {
+        fn parallel_rotate(&self, amount: i16) -> Self {
+            let t = self.eval(amount);
+
+            let mut harmonics = Vec::<i16>::new();
+
+            for i in (amount + 1)..(self.len() as i16 + amount + 1) {
+                harmonics.push(self.eval(i) - t);
+            }
+
+            Self::new(harmonics, self.transposition)
+        }
+
+        fn relative_rotate(&self, amount: i16) -> Self {
+            let t = self.eval(amount);
+
+            let mut harmonics = Vec::<i16>::new();
+
+            for i in (amount + 1)..(self.len() as i16 + amount + 1) {
+                harmonics.push(self.eval(i) - t);
+            }
+
+            Self::new(harmonics, t)
         }
     }
 
@@ -218,6 +243,36 @@ pub mod repeat {
         }
     }
 
+    impl Repeat for PitchClassSet {
+        fn repeat(&self, n: usize) -> Self {
+            self.shape().repeat(n).stamp(*self.pitch_classes.first().unwrap())
+        }
+
+        fn stretch(&self, n: usize) -> Self {
+            self.shape().stretch(n).stamp(*self.pitch_classes.first().unwrap())
+        }
+    }
+
+    impl Repeat for PitchScaleMap {
+        fn repeat(&self, n: usize) -> Self {
+            self.shape().repeat(n).stamp_to_scale_map(self.transposition)
+        }
+
+        fn stretch(&self, n: usize) -> Self {
+            self.shape().stretch(n).stamp_to_scale_map(self.transposition)
+        }
+    }
+
+    impl Repeat for PitchScaleKey {
+        fn repeat(&self, n: usize) -> Self {
+            self.shape().repeat(n).stamp_to_scale_key(self.root())
+        }
+
+        fn stretch(&self, n: usize) -> Self {
+            self.shape().stretch(n).stamp_to_scale_key(self.root())
+        }
+    }
+
     impl Repeat for PitchScaleShape {
         fn repeat(&self, n: usize) -> Self {
             Self::new(repeat_list(&self.intervals, n))
@@ -259,6 +314,56 @@ pub mod repeat {
     }
 
     impl Repeat for MelodyClassShape {
+        fn repeat(&self, n: usize) -> Self {
+            Self::new(repeat_list(&self.interval_classes, n), self.modulus)
+        }
+
+        fn stretch(&self, n: usize) -> Self {
+            Self::new(stretch_list(&self.interval_classes, n), self.modulus)
+        }
+    }
+
+    impl Repeat for MelodicMap {
+        fn repeat(&self, n: usize) -> Self {
+            self.shape().repeat(n).stamp(self.transposition)
+        }
+
+        fn stretch(&self, n: usize) -> Self {
+            self.shape().stretch(n).stamp(self.transposition)
+        }
+    }
+
+    impl Repeat for PitchCycle {
+        fn repeat(&self, n: usize) -> Self {
+            Self::new(repeat_list(&self.pitches, n))
+        }
+
+        fn stretch(&self, n: usize) -> Self {
+            Self::new(stretch_list(&self.pitches, n))
+        }
+    }
+
+    impl Repeat for IntervalCycle {
+        fn repeat(&self, n: usize) -> Self {
+            Self::new(repeat_list(&self.intervals, n))
+        }
+
+        fn stretch(&self, n: usize) -> Self {
+            Self::new(stretch_list(&self.intervals, n))
+        }
+    }
+
+    impl Repeat for PitchClassCycle {
+        fn repeat(&self, n: usize) -> Self {
+            Self::new(repeat_list(&self.pitch_classes, n), self.modulus)
+        }
+
+        fn stretch(&self, n: usize) -> Self {
+            Self::new(stretch_list(&self.pitch_classes, n), self.modulus)
+        }
+    }
+
+    impl Repeat for IntervalClassCycle {
         fn repeat(&self, n: usize) -> Self {
             Self::new(repeat_list(&self.interval_classes, n), self.modulus)
         }
@@ -350,6 +455,12 @@ pub mod transpose {
                 .collect();
 
             Self::new(residue_classes, self.modulus())
+        }
+    }
+
+    impl Transpose for MelodicMap {
+        fn transpose(&self, amount: i16) -> Self {
+            Self::new(self.harmonics.clone(), self.transposition + amount)
         }
     }
 
@@ -504,6 +615,14 @@ mod tests {
 
                 assert_eq!(rotation, result);
             }
+
+            #[test]
+            fn test_melodic_map() {
+                let melodic_map = MelodicMap::new(vec![2,-1,5], 0);
+                let rotation = MelodicMap::new(vec![6,8,5], 0);
+
+                assert_eq!(melodic_map.parallel_rotate(2), rotation);
+            }
         }
 
         mod relative {
@@ -525,6 +644,14 @@ mod tests {
                 let result = PitchScaleKey::new(vec![0,2,3,5], 7, 3);
 
                 assert_eq!(rotation, result);
+            }
+
+            #[test]
+            fn test_melodic_map() {
+                let melodic_map = MelodicMap::new(vec![2,-1,5], 0);
+                let rotation = MelodicMap::new(vec![6,8,5], -1);
+
+                assert_eq!(melodic_map.relative_rotate(2), rotation);
             }
         }
     }
@@ -584,6 +711,14 @@ mod tests {
             let transposition = PitchScaleKey::new(vec![0,1,3,5], 7, 1);
 
             assert_eq!(pitch_scale_key.transpose(-2), transposition);
+        }
+
+        #[test]
+        fn test_melodic_map() {
+            let melodic_map = MelodicMap::new(vec![4,-2,6,1], 3);
+            let transposition = MelodicMap::new(vec![4,-2,6,1], -1);
+
+            assert_eq!(melodic_map.transpose(-4), transposition);
         }
     }
 }

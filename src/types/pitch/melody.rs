@@ -4,7 +4,7 @@ pub struct Melody {
     pub pitches: Vec<i16>
 }
 
-/// A struct representing the "shape" of a sequence of pitches, i.e. the differences between adjacent pitches.
+/// A struct representing the shape of a sequence of pitches, i.e. the differences between adjacent pitches.
 /// 
 /// ## Predicates
 /// 
@@ -26,7 +26,7 @@ pub struct MelodyClass {
     pub modulus: i16
 }
 
-/// A struct representing the "shape" of a sequence of pitch classes.
+/// A struct representing the shape of a sequence of pitch classes.
 /// 
 /// ## Predicates
 /// 
@@ -38,7 +38,14 @@ pub struct MelodyClassShape {
     pub modulus: i16
 }
 
-/// A struct representing a cyclical sequence of pitches.
+/// A struct representing arbitrary melodic cycles, convergent or divergent.
+#[derive(PartialEq, Debug)]
+pub struct MelodicMap {
+    pub harmonics: Vec<i16>,
+    pub transposition: i16
+}
+
+/// A struct representing a convergent melodic cycle.
 #[derive(PartialEq, Debug)]
 pub struct PitchCycle {
     pub pitches: Vec<i16>
@@ -120,6 +127,12 @@ pub mod constructors {
             }
 
             Self { interval_classes, modulus }
+        }
+    }
+
+    impl MelodicMap { // Eval, fix stamp 
+        pub fn new(harmonics: Vec<i16>, transposition: i16) -> Self {
+            Self { harmonics, transposition }
         }
     }
 

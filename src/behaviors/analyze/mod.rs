@@ -5,12 +5,6 @@ use num_traits::{Num, Zero, zero};
 use std::iter::Sum;
 use std::cmp::{PartialEq, Ord, PartialOrd};
 
-/// A trait representing the retrieval of a modulus.
-pub trait Modulus<T> {
-    /// Get the modulus of the struct.
-    fn modulus(&self) -> T;
-}
-
 /// A trait representing the retrieval of a collection's size.
 pub trait Len {
     /// Returns the number of elements in the collection.
@@ -22,13 +16,24 @@ pub trait Len {
     }
 }
 
-/// A trait representing the retrieval of a struct's "shape".
+/// A trait representing the retrieval of a modulus.
+pub trait Modulus<T> {
+    /// Get the modulus of the struct.
+    fn modulus(&self) -> T;
+}
+
+/// A trait reprsenting the retrieval of a melodic modulus.
+pub trait MelodicModulus {
+    fn melodic_modulus(&self) -> i16;
+}
+
+/// A trait representing the retrieval of a struct's shape.
 pub trait Shape {
     type Output;
     fn shape(&self) -> Self::Output;
 }
 
-/// A trait representing the stamping of a "shape".
+/// A trait representing the stamping of a shape.
 pub trait Stamp<T> {
     type Output;
     fn stamp(&self, start: T) -> Self::Output;
@@ -156,6 +161,12 @@ pub mod len {
         }
     }
 
+    impl Len for MelodicMap {
+        fn len(&self) -> usize {
+            self.harmonics.len()
+        }
+    }
+
     impl Len for PitchCycle {
         fn len(&self) -> usize {
             self.pitches.len()
@@ -269,6 +280,24 @@ pub mod modulus {
         }
     }
 
+    impl Modulus<i16> for MelodicMap {
+        fn modulus(&self) -> i16 {
+            *self.harmonics.last().unwrap()
+        }
+    }
+
+    impl Modulus<i16> for PitchCycle {
+        fn modulus(&self) -> i16 {
+            0
+        }
+    }
+
+    impl Modulus<i16> for IntervalCycle {
+        fn modulus(&self) -> i16 {
+            self.intervals.iter().sum()
+        }
+    }
+
     impl Modulus<f64> for TimeClassSet {
         fn modulus(&self) -> f64 {
             self.modulus
@@ -291,6 +320,22 @@ pub mod modulus {
     {
         fn modulus(&self) -> f64 {
             self.intervals.iter().cloned().sum()
+        }
+    }
+}
+
+pub mod melodic_modulus {
+    use super::*;
+
+    impl MelodicModulus for PitchClassCycle {
+        fn melodic_modulus(&self) -> i16 {
+            0
+        }
+    }
+
+    impl MelodicModulus for IntervalClassCycle {
+        fn melodic_modulus(&self) -> i16 {
+            self.interval_classes.iter().sum::<i16>().rem_euclid(self.modulus())
         }
     }
 }
@@ -377,6 +422,21 @@ pub mod shape {
                 .collect();
             
             Self::Output::new(interval_classes, self.modulus())
+        }
+    }
+
+    impl Shape for MelodicMap {
+        type Output = IntervalCycle;
+
+        fn shape(&self) -> Self::Output {
+            let mut intervals: Vec<i16> = self.harmonics
+                .windows(2)
+                .map(|window| window[1] - window[0])
+                .collect();
+
+            intervals.insert(0, self.harmonics[0]);
+            
+            Self::Output::new(intervals)
         }
     }
 
@@ -484,17 +544,34 @@ pub mod stamp {
         }
     }
 
+    impl IntervalCycle {
+        pub fn stamp_to_pitch_cycle(&self, pitch: i16) -> PitchCycle {
+            #[cfg(debug_assertions)]
+            {
+                assert_eq!(self.intervals.iter().sum::<i16>(), 0);
+            }
+
+            let pitches = self.intervals.iter().take(self.len() - 1).fold(vec![pitch], |mut acc, &diff| {
+                let next_value = *acc.last().unwrap() + diff;
+                acc.push(next_value);
+                acc
+            });
+
+            PitchCycle::new(pitches)
+        }
+    }
+
     impl Stamp<i16> for ChordShape {
         type Output = Chord;
 
         fn stamp(&self, start: i16) -> Self::Output {
-            let numbers = self.intervals.iter().fold(vec![start], |mut acc, &diff| {
+            let pitches = self.intervals.iter().fold(vec![start], |mut acc, &diff| {
                 let next_value = *acc.last().unwrap() + diff;
                 acc.push(next_value);
                 acc
             });
     
-            Self::Output::new(numbers)
+            Self::Output::new(pitches)
         }
     }
 
@@ -563,17 +640,15 @@ pub mod stamp {
     }
 
     impl Stamp<i16> for IntervalCycle {
-        type Output = PitchCycle;
+        type Output = MelodicMap;
 
         fn stamp(&self, start: i16) -> Self::Output {
-            let pitches: Vec<i16> = std::iter::once(start)
-                .chain(self.intervals.iter().take(self.len() - 1).scan(start, |acc, &diff| {
-                    *acc += diff;
-                    Some(*acc)
-                }))
-                .collect();
-            
-            Self::Output::new(pitches)
+            let harmonics = self.intervals.iter().scan(0, |acc, &x| {
+                *acc += x;
+                Some(*acc)
+            }).collect();
+    
+            Self::Output::new(harmonics, start)
         }
     }
 
@@ -705,56 +780,53 @@ pub mod prime {
         }
     }
 
-    // Need to differentiate between ResidueModulus and CycleModulus 
-    // before I add these. 
+    impl Prime<i16> for PitchCycle {
+        fn prime(&self) -> Self {
+            self.shape().prime().stamp_to_pitch_cycle(*self.pitches.first().unwrap())
+        }
 
-    // impl AnalyzePrimality<i16> for PitchCycle {
-    //     fn get_prime(&self) -> Self {
-    //         self.shape().get_prime().stamp(self.pitches.first())
-    //     }
+        fn is_prime(&self) -> bool {
+            self.shape().is_prime()
+        }
+    }
 
-    //     fn is_prime(&self) -> bool {
-    //         self.shape().is_prime()
-    //     }
-    // }
+    impl Prime<i16> for IntervalCycle {
+        fn prime(&self) -> Self {
+            let prime = find_aperiodic_substring(&self.intervals);
 
-    // impl AnalyzePrimality<i16> for IntervalCycle {
-    //     fn get_prime(&self) -> Self {
-    //         let prime = find_aperiodic_substring(&self.intervals);
+            Self::new(prime)
+        }
 
-    //         Self::new(prime)
-    //     }
+        fn is_prime(&self) -> bool {
+            let prime = find_aperiodic_substring(&self.intervals);
 
-    //     fn is_prime(&self) -> bool {
-    //         let prime = find_aperiodic_substring(&self.intervals);
+            self.intervals == prime
+        }
+    }
 
-    //         self.intervals == prime
-    //     }
-    // }
+    impl Prime<i16> for PitchClassCycle {
+        fn prime(&self) -> Self {
+            self.shape().prime().stamp(*self.pitch_classes.first().unwrap())
+        }
 
-    // impl AnalyzePrimality<i16> for PitchClassCycle {
-    //     fn get_prime(&self) -> Self {
-    //         self.shape().get_prime().stamp(self.pitch_classes.first())
-    //     }
+        fn is_prime(&self) -> bool {
+            self.shape().is_prime()
+        }
+    }
 
-    //     fn is_prime(&self) -> bool {
-    //         self.shape().is_prime()
-    //     }
-    // }
+    impl Prime<i16> for IntervalClassCycle {
+        fn prime(&self) -> Self {
+            let prime = find_aperiodic_substring(&self.interval_classes);
 
-    // impl AnalyzePrimality<i16> for IntervalClassCycle {
-    //     fn get_prime(&self) -> Self {
-    //         let prime = find_aperiodic_substring(&self.interval_classes);
+            Self::new(prime, self.modulus())
+        }
 
-    //         Self::new(prime, self.modulus())
-    //     }
+        fn is_prime(&self) -> bool {
+            let prime = find_aperiodic_substring(&self.interval_classes);
 
-    //     fn is_prime(&self) -> bool {
-    //         let prime = find_aperiodic_substring(&self.interval_classes);
-
-    //         self.interval_classes == prime
-    //     }
-    // }
+            self.interval_classes == prime
+        }
+    }
 
     impl Prime<f64> for TimeClassSet {
         fn prime(&self) -> Self {
@@ -813,6 +885,24 @@ pub mod eval {
 
     impl Eval<i16> for PitchScaleMap {
         /// Evaluates the scale map at a given index.
+        /// 
+        /// # Arguments
+        /// 
+        /// * `index`: An integer representing the index at which to evaluate the scale map.
+        fn eval(&self, index: i16) -> i16 {
+            let mut rmap: Vec<i16> = self.harmonics.clone();
+            rmap.insert(0, 0);
+            rmap.pop();
+
+            let r = index.rem_euclid(self.len() as i16);
+            let q = (index - r) / self.len() as i16;
+
+            q * self.modulus() + rmap[r as usize] + self.transposition
+        }
+    }
+
+    impl Eval<i16> for MelodicMap {
+        /// Evaluates the melodic map at a given index.
         /// 
         /// # Arguments
         /// 
@@ -988,6 +1078,14 @@ mod tests {
         }
 
         #[test]
+        fn test_melodic_map() {
+            let melodic_map = MelodicMap::new(vec![-2,7,3,2], 3);
+            let shape = IntervalCycle::new(vec![-2,9,-4,-1]);
+
+            assert_eq!(melodic_map.shape(), shape);
+        }
+
+        #[test]
         fn test_pitch_cycle() {
             let pitch_cycle = PitchCycle::new(vec![2,7,5,1,-5]);
             let interval_cycle = IntervalCycle::new(vec![5,-2,-4,-6,7]);
@@ -1033,6 +1131,14 @@ mod tests {
         }
 
         #[test]
+        fn test_interval_to_pitch_cycle() {
+            let interval_cycle = IntervalCycle::new(vec![2,7,-4,0,-3,4,-6]);
+            let result = PitchCycle::new(vec![6,8,15,11,11,8,12]);
+
+            assert_eq!(interval_cycle.stamp_to_pitch_cycle(6), result);
+        }
+
+        #[test]
         fn test_chord_shape() {
             let chord_shape = ChordShape::new(vec![2,7,3,5]);
             let chord = Chord::new(vec![4,6,13,16,21]);
@@ -1066,10 +1172,10 @@ mod tests {
 
         #[test]
         fn test_interval_cycle() {
-            let interval_cycle = IntervalCycle::new(vec![3,-6,7,-1,-3]);
-            let pitch_cycle = PitchCycle::new(vec![8,11,5,12,11]);
+            let interval_cycle = IntervalCycle::new(vec![3,-6,7,-1,-1]);
+            let pitch_cycle = MelodicMap::new(vec![3,-3,4,3,2], 0);
 
-            assert_eq!(interval_cycle.stamp(8), pitch_cycle);
+            assert_eq!(interval_cycle.stamp(0), pitch_cycle);
         }
 
         #[test]
@@ -1132,6 +1238,13 @@ mod tests {
             let pitch_scale_map = PitchScaleMap::new(vec![2,3,5,7], 3);
 
             assert_eq!(pitch_scale_map.eval(8), 17);
+        }
+
+        #[test]
+        fn test_melodic_map() {
+            let melodic_map = MelodicMap::new(vec![3,-1,4], 0);
+
+            assert_eq!(melodic_map.eval(7), 11);
         }
     }
 

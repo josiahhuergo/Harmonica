@@ -1,6 +1,10 @@
 use crate::types::*;
 use crate::utility::*;
 
+/* Rhythm types and behaviors are on hold
+   until I find a suitable replacement
+   for using floats, because floats suck. */
+
 //-----------------------------------------------
 //--------------------- SET ---------------------
 //-----------------------------------------------
