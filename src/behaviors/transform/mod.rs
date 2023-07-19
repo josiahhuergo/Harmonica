@@ -1,7 +1,7 @@
 use crate::types::*;
 use crate::utility::*;
 use crate::behaviors::analyze::*;
-use crate::types::{pitch::{scale::*, chord::*, melody::*}, rhythm::*};
+use crate::types::{scale::*, chord::*, melody::*, progression::*, rhythm::*};
 use std::ops::{Sub, Rem, Add};
 
 /// A trait representing the rotation of a cyclical collection of things.
@@ -11,6 +11,8 @@ pub trait Rotate {
 }
 
 /// A trait representing the rotation of a scale's modes.
+/// 
+/// This corresponds to the notion of parallel modes and relative modes.
 pub trait RotateMode {
     /// Rotates the mode of the scale in a parallel way.
     fn parallel_rotate(&self, amount: i16) -> Self;
@@ -35,10 +37,10 @@ pub trait Transpose {
 }
 
 /// A trait representing the offset of times in a rhythmic struct.
-pub trait Offset {
-    /// Offsets the times in a struct by amount.
-    fn offset(&self, amount: f64) -> Self;
-}
+// pub trait Offset {
+//     /// Offsets the times in a struct by amount.
+//     fn offset(&self, amount: f64) -> Self;
+// }
 
 //--------------------------------------------------------------------//
 
@@ -54,7 +56,7 @@ pub mod rotate {
         }
     }
 
-    impl Rotate for PitchScaleShape {
+    impl Rotate for ScaleShape {
         fn rotate(&self, n: i16) -> Self {
             let mut intervals = self.intervals.clone();
             intervals.rotate_left(n.rem_euclid(self.len() as i16) as usize);
@@ -99,29 +101,56 @@ pub mod rotate {
         }
     }
 
-    impl Rotate for TimeSetShape {
+    impl Rotate for ChordCycle {
         fn rotate(&self, n: i16) -> Self {
-            let mut intervals = self.intervals.clone();
-            intervals.rotate_left(n.rem_euclid(self.len() as i16) as usize);
+            let mut chords = self.chords.clone();
+            chords.rotate_left(n.rem_euclid(self.len() as i16) as usize);
 
-            Self::new(intervals)
+            Self::new(chords)
         }
     }
 
-    impl Rotate for TimeScaleShape {
+    impl Rotate for ScaleCycle {
         fn rotate(&self, n: i16) -> Self {
-            let mut intervals = self.intervals.clone();
-            intervals.rotate_left(n.rem_euclid(self.len() as i16) as usize);
+            let mut scales = self.scales.clone();
+            scales.rotate_left(n.rem_euclid(self.len() as i16) as usize);
 
-            Self::new(intervals)
+            Self::new(scales)
         }
     }
+
+    impl Rotate for KeyCycle {
+        fn rotate(&self, n: i16) -> Self {
+            let mut keys = self.keys.clone();
+            keys.rotate_left(n.rem_euclid(self.len() as i16) as usize);
+
+            Self::new(keys)
+        }
+    }
+
+    // impl Rotate for TimeSetShape {
+    //     fn rotate(&self, n: i16) -> Self {
+    //         let mut intervals = self.intervals.clone();
+    //         intervals.rotate_left(n.rem_euclid(self.len() as i16) as usize);
+
+    //         Self::new(intervals)
+    //     }
+    // }
+
+    // impl Rotate for TimeScaleShape {
+    //     fn rotate(&self, n: i16) -> Self {
+    //         let mut intervals = self.intervals.clone();
+    //         intervals.rotate_left(n.rem_euclid(self.len() as i16) as usize);
+
+    //         Self::new(intervals)
+    //     }
+    // }
 }
 
 pub mod rotate_mode {
     use super::*;
 
-    impl RotateMode for PitchScaleMap {
+    impl RotateMode for ScaleMap {
         fn parallel_rotate(&self, amount: i16) -> Self {
             let harmonics = self.harmonics.iter().cloned()
                 .map(|num| (num - self.eval(amount)).rem_euclid(self.modulus()))
@@ -145,7 +174,7 @@ pub mod rotate_mode {
         }
     }
 
-    impl RotateMode for PitchScaleKey {
+    impl RotateMode for ScaleKey {
         fn parallel_rotate(&self, amount: i16) -> Self {
             let t = self.pitch_classes[amount.rem_euclid(self.len() as i16) as usize] - self.root();
 
@@ -188,46 +217,46 @@ pub mod rotate_mode {
         }
     }
 
-    impl RotateMode for TimeScaleMap {
-        fn parallel_rotate(&self, amount: i16) -> Self {
-            let harmonics = self.harmonics.iter().cloned()
-                .map(|num| (num - self.eval(amount)).rem_euclid(self.modulus()))
-                .filter(|num| *num != 0.0)
-                .chain(vec![self.modulus()].into_iter()) 
-                .collect();
+    // impl RotateMode for TimeScaleMap {
+    //     fn parallel_rotate(&self, amount: i16) -> Self {
+    //         let harmonics = self.harmonics.iter().cloned()
+    //             .map(|num| (num - self.eval(amount)).rem_euclid(self.modulus()))
+    //             .filter(|num| *num != 0.0)
+    //             .chain(vec![self.modulus()].into_iter()) 
+    //             .collect();
 
-            Self::new(harmonics, self.offset)
-        }
+    //         Self::new(harmonics, self.offset)
+    //     }
 
-        fn relative_rotate(&self, amount: i16) -> Self {
-            let sub = self.harmonics[amount.rem_euclid(self.len() as i16) as usize - 1];
+    //     fn relative_rotate(&self, amount: i16) -> Self {
+    //         let sub = self.harmonics[amount.rem_euclid(self.len() as i16) as usize - 1];
 
-            let harmonics: Vec<f64> = self.harmonics.iter().cloned()
-                .map(|num| (num - sub).rem_euclid(self.modulus()))
-                .filter(|num| *num != 0.0)
-                .chain(vec![self.modulus()].into_iter()) 
-                .collect();
+    //         let harmonics: Vec<f64> = self.harmonics.iter().cloned()
+    //             .map(|num| (num - sub).rem_euclid(self.modulus()))
+    //             .filter(|num| *num != 0.0)
+    //             .chain(vec![self.modulus()].into_iter()) 
+    //             .collect();
 
-            Self::new(sort_vector(&harmonics), self.eval(amount))
-        }
-    }
+    //         Self::new(sort_vector(&harmonics), self.eval(amount))
+    //     }
+    // }
 
-    impl RotateMode for TimeScaleKey {
-        fn parallel_rotate(&self, amount: i16) -> Self {
-            let t = self.time_classes[amount.rem_euclid(self.len() as i16) as usize] - self.root();
+    // impl RotateMode for TimeScaleKey {
+    //     fn parallel_rotate(&self, amount: i16) -> Self {
+    //         let t = self.time_classes[amount.rem_euclid(self.len() as i16) as usize] - self.root();
 
-            let time_classes: Vec<f64> = self.time_classes
-                .iter()
-                .map(|num| (*num - t).rem_euclid(self.modulus() as f64))
-                .collect();
+    //         let time_classes: Vec<f64> = self.time_classes
+    //             .iter()
+    //             .map(|num| (*num - t).rem_euclid(self.modulus() as f64))
+    //             .collect();
     
-            Self::new(time_classes, self.modulus(), self.root())
-        }
+    //         Self::new(time_classes, self.modulus(), self.root())
+    //     }
     
-        fn relative_rotate(&self, amount: i16) -> Self {
-            Self::new(self.time_classes.clone(), self.modulus(), self.eval(amount.rem_euclid(self.len() as i16)))
-        }
-    }
+    //     fn relative_rotate(&self, amount: i16) -> Self {
+    //         Self::new(self.time_classes.clone(), self.modulus(), self.eval(amount.rem_euclid(self.len() as i16)))
+    //     }
+    // }
 }
 
 pub mod repeat {
@@ -243,7 +272,7 @@ pub mod repeat {
         }
     }
 
-    impl Repeat for PitchClassSet {
+    impl Repeat for Scale {
         fn repeat(&self, n: usize) -> Self {
             self.shape().repeat(n).stamp(*self.pitch_classes.first().unwrap())
         }
@@ -253,7 +282,7 @@ pub mod repeat {
         }
     }
 
-    impl Repeat for PitchScaleMap {
+    impl Repeat for ScaleMap {
         fn repeat(&self, n: usize) -> Self {
             self.shape().repeat(n).stamp_to_scale_map(self.transposition)
         }
@@ -263,7 +292,7 @@ pub mod repeat {
         }
     }
 
-    impl Repeat for PitchScaleKey {
+    impl Repeat for ScaleKey {
         fn repeat(&self, n: usize) -> Self {
             self.shape().repeat(n).stamp_to_scale_key(self.root())
         }
@@ -273,7 +302,7 @@ pub mod repeat {
         }
     }
 
-    impl Repeat for PitchScaleShape {
+    impl Repeat for ScaleShape {
         fn repeat(&self, n: usize) -> Self {
             Self::new(repeat_list(&self.intervals, n))
         }
@@ -373,25 +402,25 @@ pub mod repeat {
         }
     }
 
-    impl Repeat for TimeSetShape {
-        fn repeat(&self, n: usize) -> Self {
-            Self::new(repeat_list(&self.intervals, n))
-        }
+    // impl Repeat for TimeSetShape {
+    //     fn repeat(&self, n: usize) -> Self {
+    //         Self::new(repeat_list(&self.intervals, n))
+    //     }
     
-        fn stretch(&self, n: usize) -> Self {
-            Self::new(stretch_list(&self.intervals, n))
-        }
-    }
+    //     fn stretch(&self, n: usize) -> Self {
+    //         Self::new(stretch_list(&self.intervals, n))
+    //     }
+    // }
 
-    impl Repeat for TimeScaleShape {
-        fn repeat(&self, n: usize) -> Self {
-            Self::new(repeat_list(&self.intervals, n))
-        }
+    // impl Repeat for TimeScaleShape {
+    //     fn repeat(&self, n: usize) -> Self {
+    //         Self::new(repeat_list(&self.intervals, n))
+    //     }
 
-        fn stretch(&self, n: usize) -> Self {
-            Self::new(stretch_list(&self.intervals, n))
-        }
-    }
+    //     fn stretch(&self, n: usize) -> Self {
+    //         Self::new(stretch_list(&self.intervals, n))
+    //     }
+    // }
 }
 
 pub mod transpose {
@@ -408,7 +437,7 @@ pub mod transpose {
         }
     }
 
-    impl Transpose for PitchClassSet {
+    impl Transpose for Scale {
         fn transpose(&self, amount: i16) -> Self {
             let pitch_classes: Vec<i16> = self.pitch_classes
                 .iter()
@@ -419,13 +448,13 @@ pub mod transpose {
         }
     }
 
-    impl Transpose for PitchScaleMap {
+    impl Transpose for ScaleMap {
         fn transpose(&self, amount: i16) -> Self {
             Self::new(self.harmonics.clone(), self.transposition + amount)
         }
     }
 
-    impl Transpose for PitchScaleKey { 
+    impl Transpose for ScaleKey { 
         fn transpose(&self, amount: i16) -> Self {
             let pitch_classes: Vec<i16> = self.pitch_classes
                 .iter()
@@ -485,50 +514,64 @@ pub mod transpose {
             Self::new(residue_classes, self.modulus())
         }
     }
+
+    impl Transpose for ChordSequence {
+        fn transpose(&self, amount: i16) -> Self {
+            let mut chords = Vec::<Chord>::new();
+
+            for chord in &self.chords {
+                chords.push(chord.transpose(amount));
+            }
+
+            Self::new(chords)
+        }
+    }
+
+    
 }
 
-pub mod offset {
-    use super::*;
+// pub mod offset {
+//     use super::*;
 
-    impl Offset for TimeSet {
-        fn offset(&self, amount: f64) -> Self {
-            let times: Vec<f64> = self.times
-                .iter()
-                .map(|n| n + amount)
-                .collect();
+//     impl Offset for TimeSet {
+//         fn offset(&self, amount: f64) -> Self {
+//             let times: Vec<f64> = self.times
+//                 .iter()
+//                 .map(|n| n + amount)
+//                 .collect();
 
-            Self::new(times)
-        }
-    }
+//             Self::new(times)
+//         }
+//     }
 
-    impl Offset for TimeClassSet {
-        fn offset(&self, amount: f64) -> Self {
-            let time_classes: Vec<f64> = self.time_classes
-                .iter()
-                .map(|n| (n + amount).rem_euclid(self.modulus()))
-                .collect();
+//     impl Offset for TimeClassSet {
+//         fn offset(&self, amount: f64) -> Self {
+//             let time_classes: Vec<f64> = self.time_classes
+//                 .iter()
+//                 .map(|n| (n + amount).rem_euclid(self.modulus()))
+//                 .collect();
 
-            Self::new(time_classes, self.modulus())
-        }
-    }
+//             Self::new(time_classes, self.modulus())
+//         }
+//     }
 
-    impl Offset for TimeScaleMap {
-        fn offset(&self, amount: f64) -> Self {
-            Self::new(self.harmonics.clone(), self.offset + amount)
-        }
-    }
+//     impl Offset for TimeScaleMap {
+//         fn offset(&self, amount: f64) -> Self {
+//             Self::new(self.harmonics.clone(), self.offset + amount)
+//         }
+//     }
 
-    impl Offset for TimeScaleKey { 
-        fn offset(&self, amount: f64) -> Self {
-            let time_classes: Vec<f64> = self.time_classes
-                .iter()
-                .map(|n| (n + amount).rem_euclid(self.modulus()))
-                .collect();
+//     impl Offset for TimeScaleKey { 
+//         fn offset(&self, amount: f64) -> Self {
+//             let time_classes: Vec<f64> = self.time_classes
+//                 .iter()
+//                 .map(|n| (n + amount).rem_euclid(self.modulus()))
+//                 .collect();
 
-            Self::new(time_classes, self.modulus(), self.root() + amount)
-        }
-    }
-}
+//             Self::new(time_classes, self.modulus(), self.root() + amount)
+//         }
+//     }
+// }
 
 #[cfg(test)]
 mod tests {
@@ -548,9 +591,9 @@ mod tests {
 
         #[test]
         fn test_pitch_scale_shape() {
-            let pitch_scale_shape = PitchScaleShape::new(vec![4,7,2,4]);
+            let pitch_scale_shape = ScaleShape::new(vec![4,7,2,4]);
             let rotation = pitch_scale_shape.rotate(2);
-            let result = PitchScaleShape::new(vec![2,4,4,7]);
+            let result = ScaleShape::new(vec![2,4,4,7]);
 
             assert_eq!(rotation, result);
         }
@@ -600,18 +643,18 @@ mod tests {
 
             #[test]
             fn test_pitch_scale_map() {
-                let pitch_scale_map = PitchScaleMap::new(vec![2,3,5,7], 2);
+                let pitch_scale_map = ScaleMap::new(vec![2,3,5,7], 2);
                 let rotation = pitch_scale_map.parallel_rotate(2);
-                let result = PitchScaleMap::new(vec![2,4,6,7], 2);
+                let result = ScaleMap::new(vec![2,4,6,7], 2);
 
                 assert_eq!(rotation, result);
             }
 
             #[test]
             fn test_pitch_scale_key() {
-                let pitch_scale_key = PitchScaleKey::new(vec![0,2,3,5], 7, 0);
+                let pitch_scale_key = ScaleKey::new(vec![0,2,3,5], 7, 0);
                 let rotation = pitch_scale_key.parallel_rotate(2);
-                let result = PitchScaleKey::new(vec![0,2,4,6], 7, 0);
+                let result = ScaleKey::new(vec![0,2,4,6], 7, 0);
 
                 assert_eq!(rotation, result);
             }
@@ -630,18 +673,18 @@ mod tests {
 
             #[test]
             fn test_pitch_scale_map() {
-                let pitch_scale_map = PitchScaleMap::new(vec![2,3,5,7], 2);
+                let pitch_scale_map = ScaleMap::new(vec![2,3,5,7], 2);
                 let rotation = pitch_scale_map.relative_rotate(2);
-                let result = PitchScaleMap::new(vec![2,4,6,7], 5);
+                let result = ScaleMap::new(vec![2,4,6,7], 5);
 
                 assert_eq!(rotation, result);
             }
 
             #[test]
             fn test_pitch_scale_key() {
-                let pitch_scale_key = PitchScaleKey::new(vec![0,2,3,5], 7, 0);
+                let pitch_scale_key = ScaleKey::new(vec![0,2,3,5], 7, 0);
                 let rotation = pitch_scale_key.relative_rotate(2);
-                let result = PitchScaleKey::new(vec![0,2,3,5], 7, 3);
+                let result = ScaleKey::new(vec![0,2,3,5], 7, 3);
 
                 assert_eq!(rotation, result);
             }
@@ -691,24 +734,24 @@ mod tests {
 
         #[test]
         fn test_pitch_class_set() {
-            let pitch_class_set = PitchClassSet::new(vec![0,2,3,6,9], 12);
-            let transposition = PitchClassSet::new(vec![0,1,4,7,10], 12);
+            let pitch_class_set = Scale::new(vec![0,2,3,6,9], 12);
+            let transposition = Scale::new(vec![0,1,4,7,10], 12);
 
             assert_eq!(pitch_class_set.transpose(-2), transposition);
         }
 
         #[test]
         fn test_pitch_scale_map() {
-            let pitch_scale_map = PitchScaleMap::new(vec![2,3,5,7], 3);
-            let transposition = PitchScaleMap::new(vec![2,3,5,7], 11);
+            let pitch_scale_map = ScaleMap::new(vec![2,3,5,7], 3);
+            let transposition = ScaleMap::new(vec![2,3,5,7], 11);
 
             assert_eq!(pitch_scale_map.transpose(8), transposition);
         }
 
         #[test]
         fn test_pitch_scale_key() {
-            let pitch_scale_key = PitchScaleKey::new(vec![0,2,3,5], 7, 3);
-            let transposition = PitchScaleKey::new(vec![0,1,3,5], 7, 1);
+            let pitch_scale_key = ScaleKey::new(vec![0,2,3,5], 7, 3);
+            let transposition = ScaleKey::new(vec![0,1,3,5], 7, 1);
 
             assert_eq!(pitch_scale_key.transpose(-2), transposition);
         }
@@ -719,6 +762,22 @@ mod tests {
             let transposition = MelodicMap::new(vec![4,-2,6,1], -1);
 
             assert_eq!(melodic_map.transpose(-4), transposition);
+        }
+
+        #[test]
+        fn test_chord_sequence() {
+            let chord_sequence = ChordSequence::new(vec![
+                Chord::new(vec![0,4,7]),
+                Chord::new(vec![-2,6,9]),
+                Chord::new(vec![4,8,12])
+            ]);
+            let transposition = ChordSequence::new(vec![
+                Chord::new(vec![4,8,11]),
+                Chord::new(vec![2,10,13]),
+                Chord::new(vec![8,12,16])
+            ]);
+
+            assert_eq!(chord_sequence.transpose(4), transposition);
         }
     }
 }

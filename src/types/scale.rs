@@ -6,10 +6,11 @@ use crate::utility::*;
 /// ## Predicates
 /// 
 /// * Pitch classes must be in ascending order.
+/// * Pitch classes must be unique.
 /// * Pitch classes & modulus must be non-negative.
 /// * Pitch classes must be less than the modulus.
-#[derive(PartialEq, Debug)]
-pub struct PitchClassSet {
+#[derive(PartialEq, Debug, Clone)]
+pub struct Scale {
     pub pitch_classes: Vec<i16>,
     pub modulus: i16
 }
@@ -18,9 +19,11 @@ pub struct PitchClassSet {
 /// 
 /// ## Predicates
 /// 
-/// * Harmonics must be positive, unique, and in ascending order.
+/// * Harmonics must be positive.
+/// * Harmonics must be unique.
+/// * Harmonics must be in ascending order.
 #[derive(PartialEq, Debug)]
-pub struct PitchScaleMap {
+pub struct ScaleMap {
     pub harmonics: Vec<i16>,
     pub transposition: i16
 }
@@ -33,8 +36,8 @@ pub struct PitchScaleMap {
 /// * Pitch classes must be unique. 
 /// * Pitch classes must be less than the modulus. 
 /// * Pitch classes must be in cyclically ascending order.
-#[derive(PartialEq, Debug)]
-pub struct PitchScaleKey {
+#[derive(PartialEq, Debug, Clone)]
+pub struct ScaleKey {
     pub pitch_classes: Vec<i16>,
     pub modulus: i16
 }
@@ -45,45 +48,45 @@ pub struct PitchScaleKey {
 /// 
 /// * Intervals must be positive.
 #[derive(PartialEq, Debug)]
-pub struct PitchScaleShape {
+pub struct ScaleShape {
     pub intervals: Vec<i16>
 }
 
 pub mod constructors { 
     use super::*;
 
-    impl PitchClassSet {
+    impl Scale {
         pub fn new(pitch_classes: Vec<i16>, modulus: i16) -> Self {
             #[cfg(debug_assertions)]
             {
                 for &pitch_class in pitch_classes.iter() {
-                    assert!(pitch_class < modulus, "Pitch classes in PitchClassSet must be less than the modulus.");
-                    assert!(pitch_class >= 0, "Pitch classes in PitchClassSet must be non-negative.");
+                    assert!(pitch_class < modulus, "Pitch classes in Scale must be less than the modulus.");
+                    assert!(pitch_class >= 0, "Pitch classes in Scale must be non-negative.");
                 }
-                assert!(collection_is_sorted(&pitch_classes), "Pitch classes in PitchClassSet must be in ascending order.");
-                assert!(modulus >= 0, "Modulus of PitchClassSet must be non-negative.");
+                assert!(collection_is_sorted(&pitch_classes), "Pitch classes in Scale must be in ascending order.");
+                assert!(modulus >= 0, "Modulus of Scale must be non-negative.");
             }
     
             Self { pitch_classes, modulus }
         }
     }
 
-    impl PitchScaleMap {
+    impl ScaleMap {
         pub fn new(harmonics: Vec<i16>, transposition: i16) -> Self {
             #[cfg(debug_assertions)]
             {
                 for &harmonic in harmonics.iter() {
-                    assert!(harmonic > 0, "Harmonics in PitchScaleMap must be positive.");
+                    assert!(harmonic > 0, "Harmonics in ScaleMap must be positive.");
                 }
-                assert!(collection_is_unique(&harmonics), "Harmonics in PitchScaleMap must be unique.");
-                assert!(collection_is_sorted(&harmonics), "Harmonics in PitchScaleMap must be in order.");
+                assert!(collection_is_unique(&harmonics), "Harmonics in ScaleMap must be unique.");
+                assert!(collection_is_sorted(&harmonics), "Harmonics in ScaleMap must be in order.");
             }
     
             Self { harmonics, transposition }
         }
     }
 
-    impl PitchScaleKey {
+    impl ScaleKey {
         pub fn new(pitch_classes: Vec<i16>, modulus: i16, root: i16) -> Self {
             #[cfg(debug_assertions)]
             {
@@ -101,7 +104,7 @@ pub mod constructors {
         }
     }
 
-    impl PitchScaleShape {
+    impl ScaleShape {
         pub fn new(intervals: Vec<i16>) -> Self {
             #[cfg(debug_assertions)]
             {
@@ -121,24 +124,24 @@ mod tests {
     #[test]
     #[should_panic]
     fn test_pitch_class_set() {
-        let pitch_class_set = PitchClassSet::new(vec![-2, 2, 3], 3);
+        let pitch_class_set = Scale::new(vec![-2, 2, 3], 3);
     }
 
     #[test]
     #[should_panic]
     fn test_pitch_scale_map() {
-        let pitch_scale_map = PitchScaleMap::new(vec![-2, 3, 2], 4);
+        let pitch_scale_map = ScaleMap::new(vec![-2, 3, 2], 4);
     }
 
     #[test]
     #[should_panic]
     fn test_pitch_scale_key() {
-        let pitch_scale_key = PitchScaleKey::new(vec![1,3,4,6], 7, 5);
+        let pitch_scale_key = ScaleKey::new(vec![1,3,4,6], 7, 5);
     }
 
     #[test]
     #[should_panic]
     fn test_pitch_scale_shape() {
-        let pitch_scale_shape = PitchScaleShape::new(vec![-1,2,6,2,3]);
+        let pitch_scale_shape = ScaleShape::new(vec![-1,2,6,2,3]);
     }
 }

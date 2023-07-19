@@ -1,9 +1,24 @@
 use std::fmt;
 
-/// Pitch Module
+/// Chord Module
 /// 
-/// The `pitch` module contains types related to pitch.
-pub mod pitch;
+/// The `chord` module contains types related to chords.
+pub mod chord;
+
+/// Melody Module
+/// 
+/// The `melody` moudle contains types related to melodies.
+pub mod melody;
+
+/// Scale Module
+/// 
+/// The `scale` module contains types related to scales.
+pub mod scale;
+
+/// Progression Module
+/// 
+/// The `progression` module contains types related to chord/scale progressions.
+pub mod progression;
 
 /// Rhythm Module
 /// 

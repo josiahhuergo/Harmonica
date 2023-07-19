@@ -7,17 +7,17 @@
 /// Types Module
 /// 
 /// The 'types' module contains definitions for data types used throughout the library.
-pub(crate) mod types;
+pub mod types;
 
 /// Behaviors Module
 /// 
 /// The `behaviors` module contains definitions for behaviors used throughout the library.
-pub(crate) mod behaviors;
+pub mod behaviors;
 
 /// Utility Module
 /// 
 /// The `utility` module provides general purpose tools used throughout the library.
-pub(crate) mod utility;
+pub mod utility;
 
 /// API Module
 /// 

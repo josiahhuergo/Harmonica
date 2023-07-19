@@ -7,7 +7,7 @@ use crate::utility::*;
 /// 
 /// * Pitches must be unique.
 /// * Pitches must be in ascending order.
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Debug, Clone)]
 pub struct Chord {
     pub pitches: Vec<i16>
 }

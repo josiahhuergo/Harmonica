@@ -1,7 +1,6 @@
-use crate::types::{*, pitch::{scale::*, chord::*, melody::*}, rhythm::*};
+use crate::types::{scale::*, chord::*, melody::*, progression::*, rhythm::*};
 use crate::utility::*;
 use std::ops::{Sub, Rem, Add, Neg, Mul, AddAssign};
-use num_traits::{Num, Zero, zero};
 use std::iter::Sum;
 use std::cmp::{PartialEq, Ord, PartialOrd};
 
@@ -16,32 +15,77 @@ pub trait Len {
     }
 }
 
+/// A trait representing the difference between the lowest and highest pitch in a struct.
+pub trait Span {
+    fn span(&self) -> i16;
+}
+
 /// A trait representing the retrieval of a modulus.
+/// "Modulus" refers to two different concepts: a residue class modulus,
+/// like in a Scale, or a melodic modulus, like in an interval cycle.
+/// 
+/// In cases where a melodic cycle contains residue classes, this trait will
+/// obtain the residue class modulus, while MelodicModulus will obtain the melodic modulus.
 pub trait Modulus<T> {
-    /// Get the modulus of the struct.
     fn modulus(&self) -> T;
 }
 
-/// A trait reprsenting the retrieval of a melodic modulus.
+/// A trait representing the retrieval of a melodic modulus. 
+/// The melodic modulus is the interval traversed upon completion of a given melodic cycle.
+/// 
+/// For example, if the cycle, in intervals, is [4,-3], the melodic modulus is 1.
+/// This is because, once you complete this cycle, you end up 1 semitone higher than 
+/// when you began.
+/// 
+/// By default, the Modulus trait retrieves this information from melodic cycle types. 
+/// The MelodicModulus trait exists for cases where a struct contains residue classes, which
+/// have their own notion of modulus, and are also melodic cycles. In this case, Modulus
+/// will retrieve the residue class modulus, and MelodicModulus will retrieve the melodic modulus.
 pub trait MelodicModulus {
     fn melodic_modulus(&self) -> i16;
 }
 
 /// A trait representing the retrieval of a struct's shape.
+/// 
+/// The shape of an object refers to the distances between adjacent elements.
+/// For example, the shape of a chord is the list of differences between adjacent pitches.
+/// Or, in a scale, the shape is the list of differences between adjacent pitch classes.
+/// 
+/// In the former example, the elements are laid out in a linear manner. In the former example,
+/// the elements are laid out in a cyclical manner, such that the difference between the first and 
+/// last elements are included in the shape.
 pub trait Shape {
     type Output;
     fn shape(&self) -> Self::Output;
 }
 
 /// A trait representing the stamping of a shape.
+/// 
+/// This can be considered the inverse of retrieving a struct's shape.
+/// It requires a starting element to stamp to. For example, if a chord shape is [4,3], then
+/// stamping this onto the pitch 3 will yield the chord [3,7,10].
+/// 
+/// It's called stamp because it's sort of like stamping the shape onto the linear/cyclical number space.
 pub trait Stamp<T> {
     type Output;
     fn stamp(&self, start: T) -> Self::Output;
 }
 
-/// A trait representing the ways you can analyze a scale.
+/// A trait pertaining to a cyclical struct's periodicity.
+/// 
+/// Such structs are either in prime or compound form. 
+/// A struct is prime if it is aperiodic, and compound if it is periodic.
+/// 
+/// The clearest example of this is with an interval cycle. Take [2,3,2,3] - it is clear that
+/// there is a repeating substring, [2,3], occurring twice. This makes [2,3,2,3] compound, and [2,3]
+/// is its prime form.
+/// 
+/// It is less obvious when working with pitch structs as opposed to intervals - the scale [0,2,3,5] mod 6
+/// is compound, but you don't realize this until you take its shape, [2,1,2,1].
+/// 
+/// The term "prime form" is not to be confused with prime form in musical set theory.
 pub trait Prime<T>: Modulus<T> {
-    /// Gets the prime subscale.
+    /// Gets the prime form of the struct.
     fn prime(&self) -> Self;
 
     /// Reports whether the scale is prime (aperiodic).
@@ -70,13 +114,15 @@ where
     }
 }
 
-/// A trait representing the evaluation of an indexed scale.
+/// A trait representing the evaluation of an indexed struct.
 pub trait Eval<T>:  {
     /// Evaluates the scale at index n.
     fn eval(&self, index: i16) -> T;
 }
 
 /// A trait representing the retrieval of a residue class collection from a collection of numbers.
+/// 
+/// This is how you acquire the scale that a chord belongs to, or the melody class that a melody belongs to.
 pub trait Classify<T> {
     type Output;
     fn classify(&self, modulus: T) -> Self::Output;
@@ -85,7 +131,7 @@ pub trait Classify<T> {
 pub mod individual {
     use super::*;
 
-    impl PitchScaleKey {
+    impl ScaleKey {
         pub fn root(&self) -> i16 {
             *self.pitch_classes.first().unwrap()
         }
@@ -113,25 +159,25 @@ pub mod len {
         }
     }
 
-    impl Len for PitchClassSet {
+    impl Len for Scale {
         fn len(&self) -> usize {
             self.pitch_classes.len()
         }
     }
 
-    impl Len for PitchScaleMap {
+    impl Len for ScaleMap {
         fn len(&self) -> usize {
             self.harmonics.len()
         }
     }
 
-    impl Len for PitchScaleKey {
+    impl Len for ScaleKey {
         fn len(&self) -> usize {
             self.pitch_classes.len()
         }
     }
 
-    impl Len for PitchScaleShape {
+    impl Len for ScaleShape {
         fn len(&self) -> usize {
             self.intervals.len()
         }
@@ -191,39 +237,107 @@ pub mod len {
         }
     }
 
-    impl Len for TimeSet {
+    impl Len for ChordSequence {
         fn len(&self) -> usize {
-            self.times.len()
+            self.chords.len()
         }
     }
 
-    impl Len for TimeSetShape {
+    impl Len for ScaleSequence {
         fn len(&self) -> usize {
-            self.intervals.len()
+            self.scales.len()
         }
     }
+
+    impl Len for KeySequence {
+        fn len(&self) -> usize {
+            self.keys.len()
+        }
+    }
+
+    impl Len for ChordCycle {
+        fn len(&self) -> usize {
+            self.chords.len()
+        }
+    }
+
+    impl Len for ScaleCycle {
+        fn len(&self) -> usize {
+            self.scales.len()
+        }
+    }
+
+    impl Len for KeyCycle {
+        fn len(&self) -> usize {
+            self.keys.len()
+        }
+    }
+
+    // impl Len for TimeSet {
+    //     fn len(&self) -> usize {
+    //         self.times.len()
+    //     }
+    // }
+
+    // impl Len for TimeSetShape {
+    //     fn len(&self) -> usize {
+    //         self.intervals.len()
+    //     }
+    // }
     
-    impl Len for TimeClassSet {
-        fn len(&self) -> usize {
-            self.time_classes.len()
+    // impl Len for TimeClassSet {
+    //     fn len(&self) -> usize {
+    //         self.time_classes.len()
+    //     }
+    // }
+
+    // impl Len for TimeScaleMap {
+    //     fn len(&self) -> usize {
+    //         self.harmonics.len()
+    //     }
+    // }
+
+    // impl Len for TimeScaleKey {
+    //     fn len(&self) -> usize {
+    //         self.time_classes.len()
+    //     }
+    // }
+
+    // impl Len for TimeScaleShape {
+    //     fn len(&self) -> usize {
+    //         self.intervals.len()
+    //     }
+    // }
+}
+
+pub mod span {
+    use super::*;
+
+    impl Span for Chord {
+        fn span(&self) -> i16 {
+            let max = self.pitches.iter().max().unwrap();
+            let min = self.pitches.iter().min().unwrap();
+            max - min
         }
     }
 
-    impl Len for TimeScaleMap {
-        fn len(&self) -> usize {
-            self.harmonics.len()
+    impl Span for ChordShape {
+        fn span(&self) -> i16 {
+            self.intervals.iter().sum()
         }
     }
 
-    impl Len for TimeScaleKey {
-        fn len(&self) -> usize {
-            self.time_classes.len()
+    impl Span for Melody {
+        fn span(&self) -> i16 {
+            let max = self.pitches.iter().max().unwrap();
+            let min = self.pitches.iter().min().unwrap();
+            max - min
         }
     }
 
-    impl Len for TimeScaleShape {
-        fn len(&self) -> usize {
-            self.intervals.len()
+    impl Span for MelodyShape {
+        fn span(&self) -> i16 {
+            self.intervals.iter().sum()
         }
     }
 }
@@ -231,25 +345,25 @@ pub mod len {
 pub mod modulus {
     use super::*;
 
-    impl Modulus<i16> for PitchClassSet {
+    impl Modulus<i16> for Scale {
         fn modulus(&self) -> i16 {
             self.modulus
         }
     }
 
-    impl Modulus<i16> for PitchScaleMap {
+    impl Modulus<i16> for ScaleMap {
         fn modulus(&self) -> i16 {
             *self.harmonics.last().unwrap()
         }
     }
 
-    impl Modulus<i16> for PitchScaleKey {
+    impl Modulus<i16> for ScaleKey {
         fn modulus(&self) -> i16 {
             self.modulus
         }
     }
 
-    impl Modulus<i16> for PitchScaleShape
+    impl Modulus<i16> for ScaleShape
     {
         fn modulus(&self) -> i16 {
             self.intervals.iter().cloned().sum()
@@ -298,30 +412,30 @@ pub mod modulus {
         }
     }
 
-    impl Modulus<f64> for TimeClassSet {
-        fn modulus(&self) -> f64 {
-            self.modulus
-        }
-    }
+    // impl Modulus<f64> for TimeClassSet {
+    //     fn modulus(&self) -> f64 {
+    //         self.modulus
+    //     }
+    // }
 
-    impl Modulus<f64> for TimeScaleMap {
-        fn modulus(&self) -> f64 {
-            *self.harmonics.last().unwrap()
-        }
-    }
+    // impl Modulus<f64> for TimeScaleMap {
+    //     fn modulus(&self) -> f64 {
+    //         *self.harmonics.last().unwrap()
+    //     }
+    // }
 
-    impl Modulus<f64> for TimeScaleKey {
-        fn modulus(&self) -> f64 {
-            self.modulus
-        }
-    }
+    // impl Modulus<f64> for TimeScaleKey {
+    //     fn modulus(&self) -> f64 {
+    //         self.modulus
+    //     }
+    // }
 
-    impl Modulus<f64> for TimeScaleShape
-    {
-        fn modulus(&self) -> f64 {
-            self.intervals.iter().cloned().sum()
-        }
-    }
+    // impl Modulus<f64> for TimeScaleShape
+    // {
+    //     fn modulus(&self) -> f64 {
+    //         self.intervals.iter().cloned().sum()
+    //     }
+    // }
 }
 
 pub mod melodic_modulus {
@@ -356,8 +470,8 @@ pub mod shape {
         }
     }
 
-    impl Shape for PitchClassSet {
-        type Output = PitchScaleShape;
+    impl Shape for Scale {
+        type Output = ScaleShape;
 
         fn shape(&self) -> Self::Output {
             let intervals = self.pitch_classes
@@ -370,8 +484,8 @@ pub mod shape {
         }
     }
 
-    impl Shape for PitchScaleMap {
-        type Output = PitchScaleShape;
+    impl Shape for ScaleMap {
+        type Output = ScaleShape;
 
         fn shape(&self) -> Self::Output {
             let mut intervals: Vec<i16> = self.harmonics
@@ -385,8 +499,8 @@ pub mod shape {
         }
     }
 
-    impl Shape for PitchScaleKey {
-        type Output = PitchScaleShape;
+    impl Shape for ScaleKey {
+        type Output = ScaleShape;
 
         fn shape(&self) -> Self::Output {
             let intervals = self.pitch_classes
@@ -468,79 +582,79 @@ pub mod shape {
         }
     }
 
-    impl Shape for TimeSet {
-        type Output = TimeSetShape;
+    // impl Shape for TimeSet {
+    //     type Output = TimeSetShape;
 
-        fn shape(&self) -> Self::Output {
-            let intervals = self.times
-                .windows(2)
-                .map(|window| window[1] - window[0])
-                .collect();
+    //     fn shape(&self) -> Self::Output {
+    //         let intervals = self.times
+    //             .windows(2)
+    //             .map(|window| window[1] - window[0])
+    //             .collect();
             
-            Self::Output::new(intervals)
-        }
-    }
+    //         Self::Output::new(intervals)
+    //     }
+    // }
 
-    impl Shape for TimeClassSet {
-        type Output = TimeScaleShape;
+    // impl Shape for TimeClassSet {
+    //     type Output = TimeScaleShape;
 
-        fn shape(&self) -> Self::Output {
-            let intervals = self.time_classes
-                .iter()
-                .zip(self.time_classes.iter().cycle().skip(1))
-                .map(|(&curr, &next)| (next - curr).rem_euclid(self.modulus()))
-                .collect();
+    //     fn shape(&self) -> Self::Output {
+    //         let intervals = self.time_classes
+    //             .iter()
+    //             .zip(self.time_classes.iter().cycle().skip(1))
+    //             .map(|(&curr, &next)| (next - curr).rem_euclid(self.modulus()))
+    //             .collect();
             
-            Self::Output::new(intervals)
-        }
-    }
+    //         Self::Output::new(intervals)
+    //     }
+    // }
 
-    impl Shape for TimeScaleMap {
-        type Output = TimeScaleShape;
+    // impl Shape for TimeScaleMap {
+    //     type Output = TimeScaleShape;
 
-        fn shape(&self) -> Self::Output {
-            let mut intervals: Vec<f64> = self.harmonics
-                .windows(2)
-                .map(|window| window[1] - window[0])
-                .collect();
-            intervals.insert(0, self.harmonics[0]);
+    //     fn shape(&self) -> Self::Output {
+    //         let mut intervals: Vec<f64> = self.harmonics
+    //             .windows(2)
+    //             .map(|window| window[1] - window[0])
+    //             .collect();
+    //         intervals.insert(0, self.harmonics[0]);
             
-            Self::Output::new(intervals)
-        }
-    }
+    //         Self::Output::new(intervals)
+    //     }
+    // }
 
-    impl Shape for TimeScaleKey {
-        type Output = TimeScaleShape;
+    // impl Shape for TimeScaleKey {
+    //     type Output = TimeScaleShape;
 
-        fn shape(&self) -> Self::Output {
-            let intervals = self.time_classes
-                .iter()
-                .zip(self.time_classes.iter().cycle().skip(1))
-                .map(|(&curr, &next)| (next - curr).rem_euclid(self.modulus()))
-                .collect();
+    //     fn shape(&self) -> Self::Output {
+    //         let intervals = self.time_classes
+    //             .iter()
+    //             .zip(self.time_classes.iter().cycle().skip(1))
+    //             .map(|(&curr, &next)| (next - curr).rem_euclid(self.modulus()))
+    //             .collect();
             
-            Self::Output::new(intervals)
-        }
-    }
+    //         Self::Output::new(intervals)
+    //     }
+    // }
 }
 
 pub mod stamp {
     use super::*;
 
-    impl PitchScaleShape {
-        pub fn stamp_to_scale_map(&self, transposition: i16) -> PitchScaleMap {
+    impl ScaleShape {
+        pub fn stamp_to_scale_map(&self, transposition: i16) -> ScaleMap {
             let harmonics = self.intervals.iter().scan(0, |acc, &x| {
                 *acc += x;
                 Some(*acc)
             }).collect();
     
-            PitchScaleMap::new(harmonics, transposition)
+            ScaleMap::new(harmonics, transposition)
         }
         
-        pub fn stamp_to_scale_key(&self, root: i16) -> PitchScaleKey {
+        pub fn stamp_to_scale_key(&self, root: i16) -> ScaleKey {
             let pitch_class_set = self.stamp(root);
 
-            PitchScaleKey::new(pitch_class_set.pitch_classes, self.modulus(), root)
+            ScaleKey::new(pitch_class_set.pitch_classes, self.modulus(), root)
         }
     }
 
@@ -575,8 +689,8 @@ pub mod stamp {
         }
     }
 
-    impl Stamp<i16> for PitchScaleShape {
-        type Output = PitchClassSet;
+    impl Stamp<i16> for ScaleShape {
+        type Output = Scale;
 
         fn stamp(&self, start: i16) -> Self::Output {
             #[cfg(debug_assertions)]
@@ -671,70 +785,70 @@ pub mod stamp {
         }
     }
 
-    impl TimeScaleShape {
-        pub fn stamp_to_scale_map(&self, offset: f64) -> TimeScaleMap {
-            let harmonics = self.intervals.iter().scan(0.0, |acc, &x| {
-                *acc += x;
-                Some(*acc)
-            }).collect();
+    // impl TimeScaleShape {
+    //     pub fn stamp_to_scale_map(&self, offset: f64) -> TimeScaleMap {
+    //         let harmonics = self.intervals.iter().scan(0.0, |acc, &x| {
+    //             *acc += x;
+    //             Some(*acc)
+    //         }).collect();
     
-            TimeScaleMap::new(harmonics, offset)
-        }
+    //         TimeScaleMap::new(harmonics, offset)
+    //     }
         
-        pub fn stamp_to_scale_key(&self, root: f64) -> TimeScaleKey {
-            let time_class_set = self.stamp(root);
+    //     pub fn stamp_to_scale_key(&self, root: f64) -> TimeScaleKey {
+    //         let time_class_set = self.stamp(root);
 
-            TimeScaleKey::new(time_class_set.time_classes, self.modulus(), root)
-        }
-    }
+    //         TimeScaleKey::new(time_class_set.time_classes, self.modulus(), root)
+    //     }
+    // }
 
-    impl Stamp<f64> for TimeSetShape {
-        type Output = TimeSet;
+    // impl Stamp<f64> for TimeSetShape {
+    //     type Output = TimeSet;
 
-        fn stamp(&self, start: f64) -> Self::Output {
-            let numbers = self.intervals.iter().fold(vec![start], |mut acc, &diff| {
-                let next_value = *acc.last().unwrap() + diff;
-                acc.push(next_value);
-                acc
-            });
+    //     fn stamp(&self, start: f64) -> Self::Output {
+    //         let numbers = self.intervals.iter().fold(vec![start], |mut acc, &diff| {
+    //             let next_value = *acc.last().unwrap() + diff;
+    //             acc.push(next_value);
+    //             acc
+    //         });
     
-            Self::Output::new(numbers)
-        }
-    }
+    //         Self::Output::new(numbers)
+    //     }
+    // }
 
-    impl Stamp<f64> for TimeScaleShape {
-        type Output = TimeClassSet;
+    // impl Stamp<f64> for TimeScaleShape {
+    //     type Output = TimeClassSet;
 
-        fn stamp(&self, start: f64) -> Self::Output {
-            #[cfg(debug_assertions)]
-            {
-                assert!(start < self.modulus(), "Starting time class must be less than modulus.");
-                assert!(start >= 0.0, "Starting time class must be non-negative.");
-            }
+    //     fn stamp(&self, start: f64) -> Self::Output {
+    //         #[cfg(debug_assertions)]
+    //         {
+    //             assert!(start < self.modulus(), "Starting time class must be less than modulus.");
+    //             assert!(start >= 0.0, "Starting time class must be non-negative.");
+    //         }
 
-            let time_classes: Vec<f64> = std::iter::once(start)
-                .chain(self.intervals.iter().take(self.len() - 1).scan(start, |acc, &diff| {
-                    *acc += diff;
-                    Some(*acc)
-                }))
-                .collect();
+    //         let time_classes: Vec<f64> = std::iter::once(start)
+    //             .chain(self.intervals.iter().take(self.len() - 1).scan(start, |acc, &diff| {
+    //                 *acc += diff;
+    //                 Some(*acc)
+    //             }))
+    //             .collect();
     
-            let time_classes: Vec<f64> = time_classes.iter()
-                .map(|num| (*num).rem_euclid(self.modulus()))
-                .collect();
+    //         let time_classes: Vec<f64> = time_classes.iter()
+    //             .map(|num| (*num).rem_euclid(self.modulus()))
+    //             .collect();
 
-            let mut time_classes = time_classes.clone();
-            time_classes.sort_by(|a, b| a.partial_cmp(b).unwrap());
+    //         let mut time_classes = time_classes.clone();
+    //         time_classes.sort_by(|a, b| a.partial_cmp(b).unwrap());
             
-            Self::Output::new(time_classes, self.modulus())
-        }
-    }
+    //         Self::Output::new(time_classes, self.modulus())
+    //     }
+    // }
 }
 
 pub mod prime {
     use super::*;
 
-    impl Prime<i16> for PitchClassSet {
+    impl Prime<i16> for Scale {
         fn prime(&self) -> Self {
             let smallest_pitch_class = self.pitch_classes.iter().min().cloned().unwrap();
             self.shape().prime().stamp(smallest_pitch_class)
@@ -745,7 +859,7 @@ pub mod prime {
         }
     }
 
-    impl Prime<i16> for PitchScaleMap {
+    impl Prime<i16> for ScaleMap {
         fn prime(&self) -> Self {
             self.shape().prime().stamp_to_scale_map(self.transposition)
         }
@@ -755,7 +869,7 @@ pub mod prime {
         }
     }
 
-    impl Prime<i16> for PitchScaleKey {
+    impl Prime<i16> for ScaleKey {
         fn prime(&self) -> Self {
             let prime = self.shape().prime();
             prime.stamp_to_scale_key(self.root().rem_euclid(prime.modulus()))
@@ -766,7 +880,7 @@ pub mod prime {
         }
     }
 
-    impl Prime<i16> for PitchScaleShape {
+    impl Prime<i16> for ScaleShape {
         fn prime(&self) -> Self {
             let intervals = find_aperiodic_substring(&self.intervals);
 
@@ -828,62 +942,62 @@ pub mod prime {
         }
     }
 
-    impl Prime<f64> for TimeClassSet {
-        fn prime(&self) -> Self {
-            let smallest_time_class = self.time_classes.iter().min_by(|a, b| a.partial_cmp(b).unwrap()).cloned().unwrap();
-            self.shape().prime().stamp(smallest_time_class)
-        }
+    // impl Prime<f64> for TimeClassSet {
+    //     fn prime(&self) -> Self {
+    //         let smallest_time_class = self.time_classes.iter().min_by(|a, b| a.partial_cmp(b).unwrap()).cloned().unwrap();
+    //         self.shape().prime().stamp(smallest_time_class)
+    //     }
 
-        fn is_prime(&self) -> bool {
-            self.shape().is_prime()
-        }
-    }
+    //     fn is_prime(&self) -> bool {
+    //         self.shape().is_prime()
+    //     }
+    // }
 
-    impl Prime<f64> for TimeScaleMap {
-        fn prime(&self) -> Self {
-            self.shape().prime().stamp_to_scale_map(self.offset)
-        }
+    // impl Prime<f64> for TimeScaleMap {
+    //     fn prime(&self) -> Self {
+    //         self.shape().prime().stamp_to_scale_map(self.offset)
+    //     }
 
-        fn is_prime(&self) -> bool {
-            self.shape().is_prime()
-        }
-    }
+    //     fn is_prime(&self) -> bool {
+    //         self.shape().is_prime()
+    //     }
+    // }
 
-    impl Prime<f64> for TimeScaleKey {
-        fn prime(&self) -> Self {
-            self.shape().prime().stamp_to_scale_key(self.root())
-        }
+    // impl Prime<f64> for TimeScaleKey {
+    //     fn prime(&self) -> Self {
+    //         self.shape().prime().stamp_to_scale_key(self.root())
+    //     }
 
-        fn is_prime(&self) -> bool {
-            self.shape().is_prime()
-        }
-    }
+    //     fn is_prime(&self) -> bool {
+    //         self.shape().is_prime()
+    //     }
+    // }
 
-    impl Prime<f64> for TimeScaleShape {
-        fn prime(&self) -> Self {
-            let intervals = find_aperiodic_substring(&self.intervals);
+    // impl Prime<f64> for TimeScaleShape {
+    //     fn prime(&self) -> Self {
+    //         let intervals = find_aperiodic_substring(&self.intervals);
 
-            Self::new(intervals)
-        }
+    //         Self::new(intervals)
+    //     }
 
-        fn is_prime(&self) -> bool {
-            let prime = find_aperiodic_substring(&self.intervals);
+    //     fn is_prime(&self) -> bool {
+    //         let prime = find_aperiodic_substring(&self.intervals);
 
-            self.intervals == prime
-        }
-    }
+    //         self.intervals == prime
+    //     }
+    // }
 }
 
 pub mod eval {
     use super::*;
 
-    impl Eval<i16> for PitchScaleKey {
+    impl Eval<i16> for ScaleKey {
         fn eval(&self, index: i16) -> i16 {
             self.pitch_classes[(index as usize).rem_euclid(self.len())]
         }
     }
 
-    impl Eval<i16> for PitchScaleMap {
+    impl Eval<i16> for ScaleMap {
         /// Evaluates the scale map at a given index.
         /// 
         /// # Arguments
@@ -919,36 +1033,36 @@ pub mod eval {
         }
     }
 
-    impl Eval<f64> for TimeScaleKey {
-        fn eval(&self, index: i16) -> f64 {
-            self.time_classes[(index as usize).rem_euclid(self.len())]
-        }
-    }
+    // impl Eval<f64> for TimeScaleKey {
+    //     fn eval(&self, index: i16) -> f64 {
+    //         self.time_classes[(index as usize).rem_euclid(self.len())]
+    //     }
+    // }
 
-    impl Eval<f64> for TimeScaleMap {
-        /// Evaluates the scale map at a given index.
-        /// 
-        /// # Arguments
-        /// 
-        /// * `index`: An integer representing the index at which to evaluate the scale map.
-        fn eval(&self, index: i16) -> f64 {
-            let mut rmap: Vec<f64> = self.harmonics.clone();
-            rmap.insert(0, 0.0);
-            rmap.pop();
+    // impl Eval<f64> for TimeScaleMap {
+    //     /// Evaluates the scale map at a given index.
+    //     /// 
+    //     /// # Arguments
+    //     /// 
+    //     /// * `index`: An integer representing the index at which to evaluate the scale map.
+    //     fn eval(&self, index: i16) -> f64 {
+    //         let mut rmap: Vec<f64> = self.harmonics.clone();
+    //         rmap.insert(0, 0.0);
+    //         rmap.pop();
 
-            let r = index.rem_euclid(self.len() as i16);
-            let q = (index - r) / self.len() as i16;
+    //         let r = index.rem_euclid(self.len() as i16);
+    //         let q = (index - r) / self.len() as i16;
 
-            q as f64 * self.modulus() + rmap[r as usize] + self.offset
-        }
-    }
+    //         q as f64 * self.modulus() + rmap[r as usize] + self.offset
+    //     }
+    // }
 }
 
 pub mod classify {
     use super::*;
 
     impl Classify<i16> for Chord {
-        type Output = PitchClassSet;
+        type Output = Scale;
 
         fn classify(&self, modulus: i16) -> Self::Output {
             let pitch_classes: Vec<i16> = self.pitches
@@ -990,18 +1104,31 @@ pub mod classify {
         }
     }
 
-    impl Classify<f64> for TimeSet {
-        type Output = TimeClassSet;
+    impl Classify<i16> for ChordSequence {
+        type Output = ScaleSequence;
 
-        fn classify(&self, modulus: f64) -> Self::Output {
-            let time_classes: Vec<f64> = self.times
+        fn classify(&self, modulus: i16) -> Self::Output {
+            let scales: Vec<Scale> = self.chords
                 .iter()
-                .map(|n| (*n).rem_euclid(modulus))
+                .map(|chord| chord.classify(modulus))
                 .collect();
 
-            Self::Output::new(time_classes, modulus)
+            Self::Output::new(scales)
         }
     }
+
+    // impl Classify<f64> for TimeSet {
+    //     type Output = TimeClassSet;
+
+    //     fn classify(&self, modulus: f64) -> Self::Output {
+    //         let time_classes: Vec<f64> = self.times
+    //             .iter()
+    //             .map(|n| (*n).rem_euclid(modulus))
+    //             .collect();
+
+    //         Self::Output::new(time_classes, modulus)
+    //     }
+    // }
 }
 
 #[cfg(test)]
@@ -1013,16 +1140,48 @@ mod tests {
 
         #[test]
         fn test_pitch_scale_key() {
-            let pitch_scale_key = PitchScaleKey::new(vec![0,2,3,5,7], 9, 3);
+            let pitch_scale_key = ScaleKey::new(vec![0,2,3,5,7], 9, 3);
 
             assert_eq!(pitch_scale_key.root(), 3);
         }
 
-        #[test]
-        fn test_time_scale_key() {
-            let time_scale_key = TimeScaleKey::new(vec![0.1, 2.5, 3.68, 4.97], 8.2, 3.68);
+        // #[test]
+        // fn test_time_scale_key() {
+        //     let time_scale_key = TimeScaleKey::new(vec![0.1, 2.5, 3.68, 4.97], 8.2, 3.68);
 
-            assert_eq!(time_scale_key.root(), 3.68);
+        //     assert_eq!(time_scale_key.root(), 3.68);
+        // }
+    }
+
+    mod span {
+        use super::*;
+
+        #[test]
+        fn test_chord() {
+            let chord = Chord::new(vec![-3,5,7,10]);
+
+            assert_eq!(chord.span(), 13);
+        }
+
+        #[test]
+        fn test_chord_shape() {
+            let chord_shape = ChordShape::new(vec![1,5,2,7]);
+
+            assert_eq!(chord_shape.span(), 15);
+        }
+
+        #[test]
+        fn test_melody() {
+            let melody = Melody::new(vec![-8,4,-2,-1,6,4]);
+
+            assert_eq!(melody.span(), 14);
+        }
+
+        #[test]
+        fn test_melody_shape() {
+            let melody_shape = MelodyShape::new(vec![1,5,-4,2,-7,2,7]);
+
+            assert_eq!(melody_shape.span(), 6);
         }
     }
 
@@ -1039,24 +1198,24 @@ mod tests {
 
         #[test]
         fn test_pitch_class_set() {
-            let pitch_class_set = PitchClassSet::new(vec![0,3,7], 9);
-            let pitch_scale_shape = PitchScaleShape::new(vec![3,4,2]);
+            let pitch_class_set = Scale::new(vec![0,3,7], 9);
+            let pitch_scale_shape = ScaleShape::new(vec![3,4,2]);
 
             assert_eq!(pitch_class_set.shape(), pitch_scale_shape);
         }
 
         #[test]
         fn test_pitch_scale_map() {
-            let pitch_scale_map = PitchScaleMap::new(vec![2,4,5,7], 2);
-            let pitch_scale_shape = PitchScaleShape::new(vec![2,2,1,2]);
+            let pitch_scale_map = ScaleMap::new(vec![2,4,5,7], 2);
+            let pitch_scale_shape = ScaleShape::new(vec![2,2,1,2]);
 
             assert_eq!(pitch_scale_map.shape(), pitch_scale_shape);
         }
 
         #[test]
         fn test_pitch_scale_key() {
-            let pitch_scale_key = PitchScaleKey::new(vec![0,1,5,7], 9, 5);
-            let pitch_scale_shape = PitchScaleShape::new(vec![2,2,1,4]);
+            let pitch_scale_key = ScaleKey::new(vec![0,1,5,7], 9, 5);
+            let pitch_scale_shape = ScaleShape::new(vec![2,2,1,4]);
 
             assert_eq!(pitch_scale_key.shape(), pitch_scale_shape);
         }
@@ -1116,16 +1275,16 @@ mod tests {
 
         #[test]
         fn test_pitch_to_scale_map() {
-            let pitch_scale_shape = PitchScaleShape::new(vec![2,6,4]);
-            let pitch_scale_map = PitchScaleMap::new(vec![2,8,12], 3);
+            let pitch_scale_shape = ScaleShape::new(vec![2,6,4]);
+            let pitch_scale_map = ScaleMap::new(vec![2,8,12], 3);
 
             assert_eq!(pitch_scale_shape.stamp_to_scale_map(3), pitch_scale_map);
         }
 
         #[test]
         fn test_pitch_to_scale_key() {
-            let pitch_scale_shape = PitchScaleShape::new(vec![2,6,4]);
-            let pitch_scale_key = PitchScaleKey::new(vec![3,7,9], 12, 7);
+            let pitch_scale_shape = ScaleShape::new(vec![2,6,4]);
+            let pitch_scale_key = ScaleKey::new(vec![3,7,9], 12, 7);
 
             assert_eq!(pitch_scale_shape.stamp_to_scale_key(7), pitch_scale_key);
         }
@@ -1148,8 +1307,8 @@ mod tests {
 
         #[test]
         fn test_pitch_scale_shape() {
-            let pitch_scale_shape = PitchScaleShape::new(vec![2,6,4]);
-            let pitch_class_set = PitchClassSet::new(vec![0,6,10], 12);
+            let pitch_scale_shape = ScaleShape::new(vec![2,6,4]);
+            let pitch_class_set = Scale::new(vec![0,6,10], 12);
 
             assert_eq!(pitch_scale_shape.stamp(10), pitch_class_set);
         }
@@ -1192,32 +1351,32 @@ mod tests {
 
         #[test]
         fn test_pitch_class_set() {
-            let pitch_class_set = PitchClassSet::new(vec![0,2,3,5,6,8,9,11], 12);
-            let prime = PitchClassSet::new(vec![0,2], 3);
+            let pitch_class_set = Scale::new(vec![0,2,3,5,6,8,9,11], 12);
+            let prime = Scale::new(vec![0,2], 3);
 
             assert_eq!(pitch_class_set.prime(), prime);
         }
 
         #[test]
         fn test_pitch_scale_map() {
-            let pitch_scale_map = PitchScaleMap::new(vec![2,3,5,6], 2);
-            let prime = PitchScaleMap::new(vec![2,3], 2);
+            let pitch_scale_map = ScaleMap::new(vec![2,3,5,6], 2);
+            let prime = ScaleMap::new(vec![2,3], 2);
 
             assert_eq!(pitch_scale_map.prime(), prime);
         }
 
         #[test]
         fn test_pitch_scale_key() {
-            let pitch_scale_key = PitchScaleKey::new(vec![0,1,3,4], 6, 3);
-            let prime = PitchScaleKey::new(vec![0,1], 3, 0);
+            let pitch_scale_key = ScaleKey::new(vec![0,1,3,4], 6, 3);
+            let prime = ScaleKey::new(vec![0,1], 3, 0);
 
             assert_eq!(pitch_scale_key.prime(), prime);
         }
 
         #[test]
         fn test_pitch_scale_shape() {
-            let pitch_scale_shape = PitchScaleShape::new(vec![2,5,4,2,5,4]);
-            let prime = PitchScaleShape::new(vec![2,5,4]);
+            let pitch_scale_shape = ScaleShape::new(vec![2,5,4,2,5,4]);
+            let prime = ScaleShape::new(vec![2,5,4]);
 
             assert_eq!(pitch_scale_shape.prime(), prime);
         }
@@ -1228,14 +1387,14 @@ mod tests {
 
         #[test]
         fn test_pitch_scale_key() {
-            let pitch_scale_key = PitchScaleKey::new(vec![2,3,6,7,9], 12, 6);
+            let pitch_scale_key = ScaleKey::new(vec![2,3,6,7,9], 12, 6);
             
             assert_eq!(pitch_scale_key.eval(3), 2);
         }
 
         #[test]
         fn test_pitch_scale_map() {
-            let pitch_scale_map = PitchScaleMap::new(vec![2,3,5,7], 3);
+            let pitch_scale_map = ScaleMap::new(vec![2,3,5,7], 3);
 
             assert_eq!(pitch_scale_map.eval(8), 17);
         }
@@ -1254,7 +1413,7 @@ mod tests {
         #[test]
         fn test_chord() {
             let chord = Chord::new(vec![-3,5,8,25]);
-            let pitch_class_set = PitchClassSet::new(vec![1,5,8,9], 12);
+            let pitch_class_set = Scale::new(vec![1,5,8,9], 12);
 
             assert_eq!(chord.classify(12), pitch_class_set);
         }
