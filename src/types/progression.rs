@@ -69,6 +69,15 @@ pub mod constructors {
         /// The constructor for a scale progression automatically converts all the scales
         /// to their least common multiple.
         pub fn new(keys: Vec<ScaleKey>) -> Self {
+            let moduli: Vec<i16> = keys.iter()
+                .map(|key| key.modulus())
+                .collect();
+            let lcm: i16 = moduli.into_iter()
+                .fold(1, |acc, x| integer::lcm(acc, x));
+            let keys: Vec<ScaleKey> = keys.iter()
+                .map(|key| key.repeat((lcm / (key.modulus())) as usize))
+                .collect();
+
             Self { keys }
         }
     }
@@ -83,6 +92,15 @@ pub mod constructors {
         /// The constructor for a scale progression automatically converts all the scales
         /// to their least common multiple.
         pub fn new(scales: Vec<Scale>) -> Self {
+            let moduli: Vec<i16> = scales.iter()
+                .map(|scale| scale.modulus())
+                .collect();
+            let lcm: i16 = moduli.into_iter()
+                .fold(1, |acc, x| integer::lcm(acc, x));
+            let scales: Vec<Scale> = scales.iter()
+                .map(|scale| scale.repeat((lcm / (scale.modulus())) as usize))
+                .collect();
+
             Self { scales }
         }
     }
@@ -91,7 +109,32 @@ pub mod constructors {
         /// The constructor for a scale progression automatically converts all the scales
         /// to their least common multiple.
         pub fn new(keys: Vec<ScaleKey>) -> Self {
+            let moduli: Vec<i16> = keys.iter()
+                .map(|key| key.modulus())
+                .collect();
+            let lcm: i16 = moduli.into_iter()
+                .fold(1, |acc, x| integer::lcm(acc, x));
+            let keys: Vec<ScaleKey> = keys.iter()
+                .map(|key| key.repeat((lcm / (key.modulus())) as usize))
+                .collect();
+
             Self { keys }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_scale_sequence() {
+        let scale_sequence = ScaleSequence::new(vec![
+            Scale::new(vec![0], 2),
+            Scale::new(vec![1,2], 3),
+            Scale::new(vec![2,3], 4)
+        ]);
+
+        println!("{:?}", scale_sequence);
     }
 }

@@ -474,11 +474,16 @@ pub mod shape {
         type Output = ScaleShape;
 
         fn shape(&self) -> Self::Output {
-            let intervals = self.pitch_classes
+            let mut intervals = Vec::<i16>::new();
+            if self.len() == 1 {
+                intervals = vec![self.modulus()];
+            } else {
+                intervals = self.pitch_classes
                 .iter()
                 .zip(self.pitch_classes.iter().cycle().skip(1))
                 .map(|(&curr, &next)| (next - curr).rem_euclid(self.modulus()))
                 .collect();
+            }
             
             Self::Output::new(intervals)
         }
@@ -503,11 +508,16 @@ pub mod shape {
         type Output = ScaleShape;
 
         fn shape(&self) -> Self::Output {
-            let intervals = self.pitch_classes
+            let mut intervals = Vec::<i16>::new();
+            if self.len() == 1 {
+                intervals = vec![self.modulus()];
+            } else {
+                intervals = self.pitch_classes
                 .iter()
                 .zip(self.pitch_classes.iter().cycle().skip(1))
                 .map(|(&curr, &next)| (next - curr).rem_euclid(self.modulus()))
                 .collect();
+            }
             
             Self::Output::new(intervals)
         }
@@ -1210,12 +1220,22 @@ mod tests {
             let pitch_scale_shape = ScaleShape::new(vec![2,2,1,2]);
 
             assert_eq!(pitch_scale_map.shape(), pitch_scale_shape);
+
+            let pitch_scale_map = ScaleMap::new(vec![7], 2);
+            let pitch_scale_shape = ScaleShape::new(vec![7]);
+
+            assert_eq!(pitch_scale_map.shape(), pitch_scale_shape);
         }
 
         #[test]
         fn test_pitch_scale_key() {
             let pitch_scale_key = ScaleKey::new(vec![0,1,5,7], 9, 5);
             let pitch_scale_shape = ScaleShape::new(vec![2,2,1,4]);
+
+            assert_eq!(pitch_scale_key.shape(), pitch_scale_shape);
+
+            let pitch_scale_key = ScaleKey::new(vec![0], 9, 0);
+            let pitch_scale_shape = ScaleShape::new(vec![9]);
 
             assert_eq!(pitch_scale_key.shape(), pitch_scale_shape);
         }
