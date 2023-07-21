@@ -642,18 +642,18 @@ mod tests {
             use super::*;
 
             #[test]
-            fn test_pitch_scale_map() {
-                let pitch_scale_map = ScaleMap::new(vec![2,3,5,7], 2);
-                let rotation = pitch_scale_map.parallel_rotate(2);
+            fn test_scale_map() {
+                let scale_map = ScaleMap::new(vec![2,3,5,7], 2);
+                let rotation = scale_map.parallel_rotate(2);
                 let result = ScaleMap::new(vec![2,4,6,7], 2);
 
                 assert_eq!(rotation, result);
             }
 
             #[test]
-            fn test_pitch_scale_key() {
-                let pitch_scale_key = ScaleKey::new(vec![0,2,3,5], 7, 0);
-                let rotation = pitch_scale_key.parallel_rotate(2);
+            fn test_scale_key() {
+                let scale_key = ScaleKey::new(vec![0,2,3,5], 7, 0);
+                let rotation = scale_key.parallel_rotate(2);
                 let result = ScaleKey::new(vec![0,2,4,6], 7, 0);
 
                 assert_eq!(rotation, result);
@@ -672,18 +672,18 @@ mod tests {
             use super::*;
 
             #[test]
-            fn test_pitch_scale_map() {
-                let pitch_scale_map = ScaleMap::new(vec![2,3,5,7], 2);
-                let rotation = pitch_scale_map.relative_rotate(2);
+            fn test_scale_map() {
+                let scale_map = ScaleMap::new(vec![2,3,5,7], 2);
+                let rotation = scale_map.relative_rotate(2);
                 let result = ScaleMap::new(vec![2,4,6,7], 5);
 
                 assert_eq!(rotation, result);
             }
 
             #[test]
-            fn test_pitch_scale_key() {
-                let pitch_scale_key = ScaleKey::new(vec![0,2,3,5], 7, 0);
-                let rotation = pitch_scale_key.relative_rotate(2);
+            fn test_scale_key() {
+                let scale_key = ScaleKey::new(vec![0,2,3,5], 7, 0);
+                let rotation = scale_key.relative_rotate(2);
                 let result = ScaleKey::new(vec![0,2,3,5], 7, 3);
 
                 assert_eq!(rotation, result);
@@ -733,27 +733,27 @@ mod tests {
         }
 
         #[test]
-        fn test_pitch_class_set() {
-            let pitch_class_set = Scale::new(vec![0,2,3,6,9], 12);
+        fn test_scale() {
+            let scale = Scale::new(vec![0,2,3,6,9], 12);
             let transposition = Scale::new(vec![0,1,4,7,10], 12);
 
-            assert_eq!(pitch_class_set.transpose(-2), transposition);
+            assert_eq!(scale.transpose(-2), transposition);
         }
 
         #[test]
-        fn test_pitch_scale_map() {
-            let pitch_scale_map = ScaleMap::new(vec![2,3,5,7], 3);
+        fn test_scale_map() {
+            let scale_map = ScaleMap::new(vec![2,3,5,7], 3);
             let transposition = ScaleMap::new(vec![2,3,5,7], 11);
 
-            assert_eq!(pitch_scale_map.transpose(8), transposition);
+            assert_eq!(scale_map.transpose(8), transposition);
         }
 
         #[test]
-        fn test_pitch_scale_key() {
-            let pitch_scale_key = ScaleKey::new(vec![0,2,3,5], 7, 3);
+        fn test_scale_key() {
+            let scale_key = ScaleKey::new(vec![0,2,3,5], 7, 3);
             let transposition = ScaleKey::new(vec![0,1,3,5], 7, 1);
 
-            assert_eq!(pitch_scale_key.transpose(-2), transposition);
+            assert_eq!(scale_key.transpose(-2), transposition);
         }
 
         #[test]

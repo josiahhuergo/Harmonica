@@ -123,20 +123,20 @@ mod tests {
 
     #[test]
     #[should_panic]
-    fn test_pitch_class_set() {
-        let pitch_class_set = Scale::new(vec![-2, 2, 3], 3);
+    fn test_scale() {
+        let scale = Scale::new(vec![-2, 2, 3], 3);
     }
 
     #[test]
     #[should_panic]
-    fn test_pitch_scale_map() {
-        let pitch_scale_map = ScaleMap::new(vec![-2, 3, 2], 4);
+    fn test_scale_map() {
+        let scale_map = ScaleMap::new(vec![-2, 3, 2], 4);
     }
 
     #[test]
     #[should_panic]
-    fn test_pitch_scale_key() {
-        let pitch_scale_key = ScaleKey::new(vec![1,3,4,6], 7, 5);
+    fn test_scale_key() {
+        let scale_key = ScaleKey::new(vec![1,3,4,6], 7, 5);
     }
 
     #[test]

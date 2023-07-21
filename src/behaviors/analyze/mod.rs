@@ -117,7 +117,7 @@ where
 /// A trait representing the evaluation of an indexed struct.
 pub trait Eval<T>:  {
     /// Evaluates the scale at index n.
-    fn eval(&self, index: i16) -> T;
+    fn eval(&self, input: T) -> T;
 }
 
 /// A trait representing the retrieval of a residue class collection from a collection of numbers.
@@ -662,9 +662,9 @@ pub mod stamp {
         }
         
         pub fn stamp_to_scale_key(&self, root: i16) -> ScaleKey {
-            let pitch_class_set = self.stamp(root);
+            let scale = self.stamp(root);
 
-            ScaleKey::new(pitch_class_set.pitch_classes, self.modulus(), root)
+            ScaleKey::new(scale.pitch_classes, self.modulus(), root)
         }
     }
 
@@ -1002,35 +1002,49 @@ pub mod eval {
     use super::*;
 
     impl Eval<i16> for ScaleKey {
-        fn eval(&self, index: i16) -> i16 {
-            self.pitch_classes[(index as usize).rem_euclid(self.len())]
+        fn eval(&self, input: i16) -> i16 {
+            self.pitch_classes[(input as usize).rem_euclid(self.len())]
         }
     }
 
     impl Eval<i16> for ScaleMap {
-        /// Evaluates the scale map at a given index.
-        /// 
-        /// # Arguments
-        /// 
-        /// * `index`: An integer representing the index at which to evaluate the scale map.
-        fn eval(&self, index: i16) -> i16 {
+        /// Evaluates an index using the scale map.
+        fn eval(&self, input: i16) -> i16 {
             let mut rmap: Vec<i16> = self.harmonics.clone();
             rmap.insert(0, 0);
             rmap.pop();
 
-            let r = index.rem_euclid(self.len() as i16);
-            let q = (index - r) / self.len() as i16;
+            let r = input.rem_euclid(self.len() as i16);
+            let q = (input - r) / self.len() as i16;
 
             q * self.modulus() + rmap[r as usize] + self.transposition
         }
     }
 
+    impl Eval<Chord> for ScaleMap {
+        /// Evaluates a generic chord using the scale map.
+        fn eval(&self, input: Chord) -> Chord {
+            let pitches: Vec<i16> = input.pitches.iter()
+                .map(|pitch| self.eval(*pitch))
+                .collect();
+
+            Chord::new(pitches)
+        }
+    }
+
+    impl Eval<Melody> for ScaleMap {
+        /// Evaluates a generic melody using the scale map.
+        fn eval(&self, input: Melody) -> Melody {
+            let pitches: Vec<i16> = input.pitches.iter()
+                .map(|pitch| self.eval(*pitch))
+                .collect();
+
+            Melody::new(pitches)
+        }
+    }
+
     impl Eval<i16> for MelodicMap {
         /// Evaluates the melodic map at a given index.
-        /// 
-        /// # Arguments
-        /// 
-        /// * `index`: An integer representing the index at which to evaluate the scale map.
         fn eval(&self, index: i16) -> i16 {
             let mut rmap: Vec<i16> = self.harmonics.clone();
             rmap.insert(0, 0);
@@ -1051,10 +1065,6 @@ pub mod eval {
 
     // impl Eval<f64> for TimeScaleMap {
     //     /// Evaluates the scale map at a given index.
-    //     /// 
-    //     /// # Arguments
-    //     /// 
-    //     /// * `index`: An integer representing the index at which to evaluate the scale map.
     //     fn eval(&self, index: i16) -> f64 {
     //         let mut rmap: Vec<f64> = self.harmonics.clone();
     //         rmap.insert(0, 0.0);
@@ -1149,10 +1159,10 @@ mod tests {
         use super::*;
 
         #[test]
-        fn test_pitch_scale_key() {
-            let pitch_scale_key = ScaleKey::new(vec![0,2,3,5,7], 9, 3);
+        fn test_scale_key() {
+            let scale_key = ScaleKey::new(vec![0,2,3,5,7], 9, 3);
 
-            assert_eq!(pitch_scale_key.root(), 3);
+            assert_eq!(scale_key.root(), 3);
         }
 
         // #[test]
@@ -1207,37 +1217,37 @@ mod tests {
         }
 
         #[test]
-        fn test_pitch_class_set() {
-            let pitch_class_set = Scale::new(vec![0,3,7], 9);
+        fn test_scale() {
+            let scale = Scale::new(vec![0,3,7], 9);
             let pitch_scale_shape = ScaleShape::new(vec![3,4,2]);
 
-            assert_eq!(pitch_class_set.shape(), pitch_scale_shape);
+            assert_eq!(scale.shape(), pitch_scale_shape);
         }
 
         #[test]
-        fn test_pitch_scale_map() {
-            let pitch_scale_map = ScaleMap::new(vec![2,4,5,7], 2);
+        fn test_scale_map() {
+            let scale_map = ScaleMap::new(vec![2,4,5,7], 2);
             let pitch_scale_shape = ScaleShape::new(vec![2,2,1,2]);
 
-            assert_eq!(pitch_scale_map.shape(), pitch_scale_shape);
+            assert_eq!(scale_map.shape(), pitch_scale_shape);
 
-            let pitch_scale_map = ScaleMap::new(vec![7], 2);
+            let scale_map = ScaleMap::new(vec![7], 2);
             let pitch_scale_shape = ScaleShape::new(vec![7]);
 
-            assert_eq!(pitch_scale_map.shape(), pitch_scale_shape);
+            assert_eq!(scale_map.shape(), pitch_scale_shape);
         }
 
         #[test]
-        fn test_pitch_scale_key() {
-            let pitch_scale_key = ScaleKey::new(vec![0,1,5,7], 9, 5);
+        fn test_scale_key() {
+            let scale_key = ScaleKey::new(vec![0,1,5,7], 9, 5);
             let pitch_scale_shape = ScaleShape::new(vec![2,2,1,4]);
 
-            assert_eq!(pitch_scale_key.shape(), pitch_scale_shape);
+            assert_eq!(scale_key.shape(), pitch_scale_shape);
 
-            let pitch_scale_key = ScaleKey::new(vec![0], 9, 0);
+            let scale_key = ScaleKey::new(vec![0], 9, 0);
             let pitch_scale_shape = ScaleShape::new(vec![9]);
 
-            assert_eq!(pitch_scale_key.shape(), pitch_scale_shape);
+            assert_eq!(scale_key.shape(), pitch_scale_shape);
         }
 
         #[test]
@@ -1296,17 +1306,17 @@ mod tests {
         #[test]
         fn test_pitch_to_scale_map() {
             let pitch_scale_shape = ScaleShape::new(vec![2,6,4]);
-            let pitch_scale_map = ScaleMap::new(vec![2,8,12], 3);
+            let scale_map = ScaleMap::new(vec![2,8,12], 3);
 
-            assert_eq!(pitch_scale_shape.stamp_to_scale_map(3), pitch_scale_map);
+            assert_eq!(pitch_scale_shape.stamp_to_scale_map(3), scale_map);
         }
 
         #[test]
         fn test_pitch_to_scale_key() {
             let pitch_scale_shape = ScaleShape::new(vec![2,6,4]);
-            let pitch_scale_key = ScaleKey::new(vec![3,7,9], 12, 7);
+            let scale_key = ScaleKey::new(vec![3,7,9], 12, 7);
 
-            assert_eq!(pitch_scale_shape.stamp_to_scale_key(7), pitch_scale_key);
+            assert_eq!(pitch_scale_shape.stamp_to_scale_key(7), scale_key);
         }
 
         #[test]
@@ -1328,9 +1338,9 @@ mod tests {
         #[test]
         fn test_pitch_scale_shape() {
             let pitch_scale_shape = ScaleShape::new(vec![2,6,4]);
-            let pitch_class_set = Scale::new(vec![0,6,10], 12);
+            let scale = Scale::new(vec![0,6,10], 12);
 
-            assert_eq!(pitch_scale_shape.stamp(10), pitch_class_set);
+            assert_eq!(pitch_scale_shape.stamp(10), scale);
         }
 
         #[test]
@@ -1370,27 +1380,27 @@ mod tests {
         use super::*;
 
         #[test]
-        fn test_pitch_class_set() {
-            let pitch_class_set = Scale::new(vec![0,2,3,5,6,8,9,11], 12);
+        fn test_scale() {
+            let scale = Scale::new(vec![0,2,3,5,6,8,9,11], 12);
             let prime = Scale::new(vec![0,2], 3);
 
-            assert_eq!(pitch_class_set.prime(), prime);
+            assert_eq!(scale.prime(), prime);
         }
 
         #[test]
-        fn test_pitch_scale_map() {
-            let pitch_scale_map = ScaleMap::new(vec![2,3,5,6], 2);
+        fn test_scale_map() {
+            let scale_map = ScaleMap::new(vec![2,3,5,6], 2);
             let prime = ScaleMap::new(vec![2,3], 2);
 
-            assert_eq!(pitch_scale_map.prime(), prime);
+            assert_eq!(scale_map.prime(), prime);
         }
 
         #[test]
-        fn test_pitch_scale_key() {
-            let pitch_scale_key = ScaleKey::new(vec![0,1,3,4], 6, 3);
+        fn test_scale_key() {
+            let scale_key = ScaleKey::new(vec![0,1,3,4], 6, 3);
             let prime = ScaleKey::new(vec![0,1], 3, 0);
 
-            assert_eq!(pitch_scale_key.prime(), prime);
+            assert_eq!(scale_key.prime(), prime);
         }
 
         #[test]
@@ -1406,17 +1416,35 @@ mod tests {
         use super::*;
 
         #[test]
-        fn test_pitch_scale_key() {
-            let pitch_scale_key = ScaleKey::new(vec![2,3,6,7,9], 12, 6);
+        fn test_scale_key() {
+            let scale_key = ScaleKey::new(vec![2,3,6,7,9], 12, 6);
             
-            assert_eq!(pitch_scale_key.eval(3), 2);
+            assert_eq!(scale_key.eval(3), 2);
         }
 
         #[test]
-        fn test_pitch_scale_map() {
-            let pitch_scale_map = ScaleMap::new(vec![2,3,5,7], 3);
+        fn test_scale_map_index() {
+            let scale_map = ScaleMap::new(vec![2,3,5,7], 3);
 
-            assert_eq!(pitch_scale_map.eval(8), 17);
+            assert_eq!(scale_map.eval(8), 17);
+        }
+
+        #[test]
+        fn test_scale_map_chord() {
+            let scale_map = ScaleMap::new(vec![2,3,5,7], 2);
+            let generic_chord = Chord::new(vec![0,2,4]);
+            let result = Chord::new(vec![2,5,9]);
+
+            assert_eq!(scale_map.eval(generic_chord), result);
+        }
+
+        #[test]
+        fn test_scale_map_melody() {
+            let scale_map = ScaleMap::new(vec![2,3,5,7], 2);
+            let generic_melody = Melody::new(vec![0,-3,2,4]);
+            let result = Melody::new(vec![2,-3,5,9]);
+
+            assert_eq!(scale_map.eval(generic_melody), result);
         }
 
         #[test]
@@ -1433,9 +1461,9 @@ mod tests {
         #[test]
         fn test_chord() {
             let chord = Chord::new(vec![-3,5,8,25]);
-            let pitch_class_set = Scale::new(vec![1,5,8,9], 12);
+            let scale = Scale::new(vec![1,5,8,9], 12);
 
-            assert_eq!(chord.classify(12), pitch_class_set);
+            assert_eq!(chord.classify(12), scale);
         }
 
         #[test]
