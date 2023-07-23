@@ -128,6 +128,10 @@ pub trait Classify<T> {
     fn classify(&self, modulus: T) -> Self::Output;
 }
 
+pub trait HasPitch {
+    fn has_pitch(&self, pitch: i16) -> bool;
+}
+
 pub mod individual {
     use super::*;
 
@@ -137,11 +141,11 @@ pub mod individual {
         }
     }
 
-    impl TimeScaleKey {
-        pub fn root(&self) -> f64 {
-            *self.time_classes.first().unwrap()
-        }
-    }
+    // impl TimeScaleKey {
+    //     pub fn root(&self) -> f64 {
+    //         *self.time_classes.first().unwrap()
+    //     }
+    // }
 }
 
 pub mod len {
@@ -1149,6 +1153,17 @@ pub mod classify {
     //         Self::Output::new(time_classes, modulus)
     //     }
     // }
+}
+
+pub mod has_pitch {
+    use super::*;
+
+    impl HasPitch for Scale {
+        fn has_pitch(&self, pitch: i16) -> bool {
+            self.pitch_classes.iter()
+                .any(|&pitch_class| pitch.rem_euclid(self.modulus()) == pitch_class)
+        }
+    }
 }
 
 #[cfg(test)]

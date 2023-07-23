@@ -1,40 +1,45 @@
 use crate::types::{chord::*, melody::*, scale::*, progression::*};
+use crate::behaviors::analyze::*;
+use itertools::Itertools;
 
-/// A struct representing a search.
-pub struct Search<T> {
-    pub results: Vec<T>,
-    pub filters: Vec<Filter>
+pub mod chord {
+    use super::*;
+
+    pub fn scale_chords_in_proximity(chord: Chord, scale: Scale, proximity: i16) -> Vec<Chord> {
+        let mut possible_pitches = Vec::<Vec<i16>>::new();
+
+        for pitch in chord.pitches {
+            let pitches: Vec<i16> = ((pitch - proximity)..=(pitch + proximity))
+                .filter(|&pitch| scale.has_pitch(pitch))
+                .collect();
+            possible_pitches.push(pitches);
+        }
+
+        let chords: Vec<Chord> = possible_pitches.into_iter()
+            .multi_cartesian_product()
+            .map(|vec| Chord::new(vec))
+            .collect();
+
+        chords
+    }
 }
 
-/// An enum representing search filter.
-pub enum Filter {    
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    mod chord {
+        use crate::behaviors::generate::search::chord::scale_chords_in_proximity;
+
+        use super::*;
+
+        #[test]
+        fn test_scale_chords_in_proximity() {
+            let chord = Chord::new(vec![0,6,9]);
+            let scale = Scale::new(vec![0,6,9], 12);
+
+            let new_chords = scale_chords_in_proximity(chord, scale, 3);
+            println!("{:?}", new_chords);
+        }
+    }
 }
-
-// Chord Search
-pub type FindChord = Search<Chord>;
-pub type FindChordShape = Search<ChordShape>;
-
-// Melody Search
-pub type FindMelody = Search<Melody>;
-pub type FindMelodyShape = Search<MelodyShape>;
-pub type FindMelodyClass = Search<MelodyClass>;
-pub type FindMelodyClassShape = Search<MelodyClassShape>;
-pub type FindMelodicMap = Search<MelodicMap>;
-pub type FindPitchCycle = Search<PitchCycle>;
-pub type FindIntervalCycle = Search<IntervalCycle>;
-pub type FindPitchClassCycle = Search<PitchClassCycle>;
-pub type FindIntervalClassCycle = Search<IntervalClassCycle>;
-
-// Scale Search
-pub type FindScale = Search<Scale>;
-pub type FindScaleMap = Search<ScaleMap>;
-pub type FindScaleKey = Search<ScaleKey>;
-pub type FindScaleShape = Search<ScaleShape>;
-
-// Progression Search
-pub type FindChordSequence = Search<ChordSequence>;
-pub type FindScaleSequence = Search<ScaleSequence>;
-pub type FindKeySequence = Search<KeySequence>;
-pub type FindChordCycle = Search<ChordCycle>;
-pub type FindScaleCycle = Search<ScaleCycle>;
-pub type FindKeyCycle = Search<KeyCycle>;
